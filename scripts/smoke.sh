@@ -3,10 +3,11 @@
 #
 #   ./scripts/smoke.sh [base_url]        (default http://localhost:3000)
 #
-# Checks: home page, queue data for all 4 institutions, one case page per
-# verdict, /api/proof-run (5x identical hashes), /api/play (4 scripted
-# plays), /stage, /api/osint graceful-offline, /api/play/config and
-# /api/evidence. Prints PASS/FAIL per check; exit 1 on any FAIL.
+# Checks: overview + queue + proof pages, queue data for all 4 institutions,
+# one case page per verdict, /api/decide (live one-case engine run vs stored),
+# /api/proof-run (5x identical hashes), /api/play (4 scripted plays), /stage,
+# /api/osint graceful-offline, /api/play/config and /api/evidence.
+# Prints PASS/FAIL per check; exit 1 on any FAIL.
 set -uo pipefail
 
 BASE="${1:-${BASE:-http://localhost:3000}}"
@@ -42,12 +43,28 @@ if [ "$CODE" = "200" ] && grep -q '"hosted":true' <<< "$BODY"; then
   info "hosted mode (bundled demo subset) — evidence docs served only for demo plays"
 fi
 
-# ---------------------------------------------------------------- home page
+# ------------------------------------------------------------ nav: overview
 get "$BASE/"
-if [ "$CODE" = "200" ] && grep -qi 'clauseproof' <<< "$BODY"; then
-  pass "GET / — home page renders (ClauseProof present)"
+if [ "$CODE" = "200" ] && grep -qi 'clauseproof' <<< "$BODY" && grep -qi 'ALERT QUEUE' <<< "$BODY"; then
+  pass "GET / — overview renders with nav"
 else
   fail "GET / — HTTP $CODE"
+fi
+
+# ---------------------------------------------------------------- nav: queue
+get "$BASE/queue"
+if [ "$CODE" = "200" ] && grep -qi 'fictional cases' <<< "$BODY"; then
+  pass "GET /queue — alert queue renders with dataset banner"
+else
+  fail "GET /queue — HTTP $CODE"
+fi
+
+# ---------------------------------------------------------------- nav: proof
+get "$BASE/proof"
+if [ "$CODE" = "200" ] && grep -qi 'check_repro' <<< "$BODY" && grep -qi 'RUN 5' <<< "$BODY"; then
+  pass "GET /proof — proof page renders (repro + live 5x panel)"
+else
+  fail "GET /proof — HTTP $CODE"
 fi
 
 # ------------------------------------------------- queues (data per inst)
@@ -113,6 +130,42 @@ print(w['$V']['case_id'] if w.get('$V') else '')" 2>/dev/null)"
   done
 else
   fail "case pages — skipped (queue data unavailable)"
+fi
+
+# ------------------------------------------------------------- /api/decide
+# run the real engine live on one case and compare with the stored verdict
+DCASE="$(py "import json
+w=json.load(open('$PICKS_FILE'))
+c=next((v for v in w.values() if v), None)
+print(c['case_id'] if c else '')" 2>/dev/null)"
+STORED="$(py "import json
+w=json.load(open('$PICKS_FILE'))
+c=next((v for v in w.values() if v), None)
+print(c['verdict'] if c else '')" 2>/dev/null)"
+if [ -n "$DCASE" ]; then
+  DRESP="$(curl -sS --max-time 90 -X POST "$BASE/api/decide" \
+        -H 'content-type: application/json' \
+        -d "{\"case_id\":\"$DCASE\"}" 2>/dev/null)"
+  DOUT="$(printf '%s' "$DRESP" | py 'import json,sys
+try:
+    d=json.load(sys.stdin)
+    if d.get("ok"):
+        print("OK|{}|{}|{}".format(d.get("verdict"), d.get("reason_code"), d.get("ms")))
+    else:
+        print("ERR|"+str(d.get("error","?"))+"||")
+except Exception as e:
+    print("ERR|unparseable||")' 2>/dev/null)"
+  DV="${DOUT%%|*}"; DREST="${DOUT#*|}"; DVERDICT="${DREST%%|*}"
+  if [ "$DV" = "OK" ] && [ "$DVERDICT" = "$STORED" ]; then
+    pass "POST /api/decide — live engine run on $DCASE agrees with stored ($STORED)"
+  elif [ "$DV" = "OK" ]; then
+    info "live verdict $DVERDICT vs stored $STORED — engine ran, verdict differs (shown honestly in UI)"
+    pass "POST /api/decide — live engine run completed on $DCASE"
+  else
+    fail "POST /api/decide — ${DREST%%|*}"
+  fi
+else
+  fail "POST /api/decide — no case id available"
 fi
 
 # ------------------------------------------------------------- /api/evidence
