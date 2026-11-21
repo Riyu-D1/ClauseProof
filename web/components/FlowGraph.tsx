@@ -375,29 +375,9 @@ function GraphInner({
   }, [model, trace, onDoc, onList]);
 
   return (
-    <div className="relative h-full w-full">
-      <ReactFlow
-        key={`${trace.case_id}`}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.22, maxZoom: 1.1 }}
-        minZoom={0.3}
-        maxZoom={1.6}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        zoomOnScroll
-        panOnDrag
-      >
-        {/* dot-matrix field, on motif */}
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="rgba(255,255,255,0.06)" />
-        <Controls showInteractive={false} position="bottom-right" />
-      </ReactFlow>
-      {/* legend — flat, mono caps; £ totals reconcile to flagged */}
-      <div className="mono pointer-events-none absolute left-3 top-3 flex flex-col gap-1.5 rounded-lg border border-line bg-obsidian-900 px-3 py-2.5 text-[9.5px]">
+    <div className="flex h-full w-full flex-col">
+      {/* legend header — flat strip so it can never overlap nodes; £ totals reconcile to flagged */}
+      <div className="mono flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line px-3 py-2 text-[9.5px]">
         <span className="tracking-[0.18em] text-ink-500">
           MONEY FLOW · {trace.coverage.length} TXNS · {model.parties} PARTIES
           {flipped && trace.flip ? " · FLIPPED" : ""}
@@ -411,10 +391,32 @@ function GraphInner({
           unexplained {gbpShort(model.uncovTotal)} · {model.uncovRows} txns
         </span>
         {model.grouped > 0 && (
-          <span className="text-ink-500">
+          <span className="ml-auto text-ink-500">
             +{model.grouped} parties in “others” — click a node to list txns
           </span>
         )}
+      </div>
+      <div className="relative min-h-0 flex-1">
+        <ReactFlow
+          key={`${trace.case_id}`}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          fitView
+          fitViewOptions={{ padding: 0.22, maxZoom: 1.1 }}
+          minZoom={0.3}
+          maxZoom={1.6}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
+          zoomOnScroll
+          panOnDrag
+        >
+          {/* dot-matrix field, on motif */}
+          <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="rgba(255,255,255,0.06)" />
+          <Controls showInteractive={false} position="bottom-right" />
+        </ReactFlow>
       </div>
     </div>
   );
