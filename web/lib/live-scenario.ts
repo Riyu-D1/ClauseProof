@@ -183,7 +183,7 @@ export const EXAMPLE_PROMPTS: { label: string; text: string }[] = [
   },
   {
     label: "Refund",
-    text: "A nurse gets £3,200 back from Volaria Travel Ltd as a refund of an earlier payment, with a letter confirming the refund",
+    text: "A nurse who earns £900 a month gets £3,200 back from Volaria Travel Ltd as a refund of an earlier payment, with a letter confirming the refund",
   },
   {
     label: "Crypto",
@@ -425,15 +425,21 @@ export function parseScenarioLocal(text: string): ParseOutcome {
   const seg = clauses(text);
 
   // ---- customer ----
-  const kind: "individual" | "business" =
-    /\b(ltd|limited|llc|plc|company|firm|bakery|shop|store|salon|barbers?|garage|restaurant|takeaway|studio|workshop|brewery|florist|butchers?|pharmacy|clinic|pub|importers?|exporters?|manufacturer|wholesalers?)\b|caf[eé]/i.test(text)
-      ? "business"
-      : "individual";
-
   const whoMatch =
     /^(?:a|an|the|my)\s+([a-zà-ÿ' -]{2,60}?)(?:\s+(?:who|that)\b|\s+(?:gets?|receives?|earns?|deposits?|pays?|sends?|has|had|keeps?|moves?|with|,|\.|$))/i.exec(text.trim());
   let activity = whoMatch ? whoMatch[1].trim() : "";
   if (/^account\b/i.test(activity)) activity = "customer";
+
+  // a "… Ltd" counterparty name must not flip the customer to business —
+  // person occupations win over company markers elsewhere in the sentence
+  const personRole =
+    /\b(student|nurse|waiter|waitress|teacher|developer|engineer|driver|worker|cleaner|landlord|tenant|pensioner|retiree|freelance\w*|designer|chef|baker|carpenter|plumber|electrician|artist|musician|writer|investor|employee|manager|doctor|dentist|pharmacist|builder|gardener|childminder|babysitter|carer|mechanic|barista|courier|translator|programmer|analyst|consultant|nanny|chef|cook|hairdresser|barber|tutor)\b/i;
+  const kind: "individual" | "business" =
+    /\b(ltd|limited|llc|plc|company|firm|bakery|shop|store|salon|barbers?|garage|restaurant|takeaway|studio|workshop|brewery|florist|butchers?|pharmacy|clinic|pub|importers?|exporters?|manufacturer|wholesalers?)\b|caf[eé]/i.test(text) &&
+    !personRole.test(activity)
+      ? "business"
+      : "individual";
+
   if (!activity) activity = kind === "business" ? "small business" : "customer";
 
   // ---- declared monthly ----
@@ -596,7 +602,8 @@ export function parseScenarioLocal(text: string): ParseOutcome {
         const isCash = /\bcash\b/i.test(rest) && /withdraw/i.test(outM[0]);
         const isCard = /\bcard\b|casino|gambl|bets?\b|restaurant|shop/i.test(rest);
         const isCrypto = /crypto|bitcoin|btc\b/i.test(rest);
-        const isFundBuy = /fund units?|fund\b|units in|invest/i.test(rest);
+        // \bfund\b, anchored: "refund" must not read as a fund purchase
+        const isFundBuy = /fund units?|\bfund\b|units in|invest/i.test(rest);
         // "buys fund units" with no amount → subscribes the money just deposited
         if (amt == null && isFundBuy) {
           const src = lastInIdx >= 0 ? payments[lastInIdx] : [...payments].reverse().find((p) => p.direction === "in");
@@ -729,7 +736,7 @@ export function parseScenarioLocal(text: string): ParseOutcome {
         amountGbp: null, matching: true, linkedPaymentId: null, partyDob: null,
       });
     }
-    const evM = /(solicitor'?s? letter|estate|inheritance|insurance (?:payout|letter)|settlement letter|sale receipt|sold (?:his|her|their|my)\s+\w+)/i.exec(text);
+    const evM = /(solicitor'?s? letter|estate|inheritance|insurance (?:payout|letter)|settlement letter|sale receipt|refund letter|letter confirming|sold (?:his|her|their|my)\s+\w+)/i.exec(text);
     if (evM && firstIn) {
       docs.push({
         id: newDocId(), type: "event_letter", partyName: firstIn.counterparty,
