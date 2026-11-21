@@ -6,9 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:demo-inst": "tsx scripts/build-demo-inst.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.84.0",
     "@xyflow/react": "^13.0.2",
     "framer-motion": "^14.14.0",
     "next": "15.5.29",
@@ -29,6 +31,7 @@
     "eslint-config-next": "15.5.29",
     "playwright": "^1.65.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }
