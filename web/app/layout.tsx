@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Doto, Space_Grotesk, Space_Mono } from "next/font/google";
+import GuidedTour from "@/components/GuidedTour";
+import SiteNav from "@/components/SiteNav";
 import "./globals.css";
 
 const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
@@ -26,7 +28,9 @@ export default function RootLayout({
     >
       <body className="min-h-screen">
         <div className="backdrop" />
+        <SiteNav />
         {children}
+        <GuidedTour />
       </body>
     </html>
   );
