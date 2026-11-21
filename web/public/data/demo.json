@@ -1,0 +1,75 @@
+{
+ "generated_at": "2026-11-21T12:25:00.600Z",
+ "picks": [
+  {
+   "slot": "close_invoice",
+   "label": "CLOSE — invoice covers it",
+   "blurb": "INV-4407 matches amount, payee and date — every edge turns green.",
+   "institution": "bank",
+   "case_id": "BK-CS118489",
+   "verdict": "CLOSE",
+   "reason_code": "INVOICE_MATCHES",
+   "flagged_gbp": 53063.03,
+   "txns": 3,
+   "counterparties": 3,
+   "unexplained": 0,
+   "has_flip": true
+  },
+  {
+   "slot": "rfi",
+   "label": "RFI — one document settles it",
+   "blurb": "1 transaction unexplained — nothing suspicious, one document or answer would close it.",
+   "institution": "emoney",
+   "case_id": "EM-CS165261",
+   "verdict": "RFI",
+   "reason_code": "RFI_SOURCE_OF_FUNDS",
+   "flagged_gbp": 13104.4,
+   "txns": 3,
+   "counterparties": 2,
+   "unexplained": 1,
+   "has_flip": true
+  },
+  {
+   "slot": "mule",
+   "label": "ESCALATE — mule-shaped flow",
+   "blurb": "34 counterparties move £133,059 through one account — pass through.",
+   "institution": "payments_fx",
+   "case_id": "PX-CS313282",
+   "verdict": "ESCALATE",
+   "reason_code": "ESC_PASS_THROUGH",
+   "flagged_gbp": 133058.88,
+   "txns": 40,
+   "counterparties": 34,
+   "unexplained": 10,
+   "has_flip": true
+  },
+  {
+   "slot": "held_fx",
+   "label": "HELD PAYMENT — release or freeze",
+   "blurb": "£22,934 held by an alert — the evidence checks out, so it is released.",
+   "institution": "payments_fx",
+   "case_id": "PX-CS141432",
+   "verdict": "CLOSE",
+   "reason_code": "INVOICE_MATCHES",
+   "flagged_gbp": 67375.45,
+   "txns": 3,
+   "counterparties": 1,
+   "unexplained": 0,
+   "has_flip": true
+  },
+  {
+   "slot": "tm22",
+   "label": "INTERNAL LIST — name on TM22",
+   "blurb": "A counterparty is the listed party — the case goes to the MLRO.",
+   "institution": "investment",
+   "case_id": "IV-CS106722",
+   "verdict": "ESCALATE",
+   "reason_code": "ESC_LISTED_PARTY",
+   "flagged_gbp": 20003.3,
+   "txns": 2,
+   "counterparties": 2,
+   "unexplained": 0,
+   "has_flip": true
+  }
+ ]
+}

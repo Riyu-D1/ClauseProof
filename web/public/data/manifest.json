@@ -1,24 +1,25 @@
 {
- "generated_at": "2026-11-21T11:58:29.361Z",
- "fixture": true,
+ "generated_at": "2026-11-21T12:17:52.467Z",
+ "fixture": false,
+ "trace_source": "output/traces",
  "institutions": [
   {
    "id": "bank",
-   "cases": 3
+   "cases": 1000
   },
   {
    "id": "emoney",
-   "cases": 3
+   "cases": 1000
   },
   {
    "id": "investment",
-   "cases": 3
+   "cases": 1000
   },
   {
    "id": "payments_fx",
-   "cases": 3
+   "cases": 1000
   }
  ],
- "repro": true,
- "total_cases": 12
+ "repro": false,
+ "total_cases": 4000
 }

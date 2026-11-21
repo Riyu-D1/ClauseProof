@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Manifest, Repro, Trace } from "./types";
+import type { Demo, Manifest, Repro, Trace } from "./types";
 
 const DATA_DIR = join(process.cwd(), "public", "data");
 
@@ -20,6 +20,10 @@ export function getManifest(): Manifest | null {
 
 export function getRepro(): Repro | null {
   return readJson<Repro>("repro.json");
+}
+
+export function getDemo(): Demo | null {
+  return readJson<Demo>("demo.json");
 }
 
 export function getTraces(institution: string): Trace[] {
