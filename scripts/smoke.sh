@@ -32,6 +32,16 @@ py() { python3 -c "$1"; }
 
 say "Smoke testing $BASE"
 
+# hosted-mode detection: /api/play/config reports hosted=true when the
+# private dataset isn't bundled (e.g. the deploy image). In that mode the
+# /api/evidence check accepts a graceful 404 — real doc files aren't shipped.
+HOSTED=0
+get "$BASE/api/play/config"
+if [ "$CODE" = "200" ] && grep -q '"hosted":true' <<< "$BODY"; then
+  HOSTED=1
+  info "hosted mode (bundled demo subset) — evidence docs served only for demo plays"
+fi
+
 # ---------------------------------------------------------------- home page
 get "$BASE/"
 if [ "$CODE" = "200" ] && grep -qi 'clauseproof' <<< "$BODY"; then
@@ -115,6 +125,8 @@ if [ -n "$DOC" ]; then
   get "$BASE/api/evidence?institution=$EI&doc=$ED"
   if [ "$CODE" = "200" ] && grep -q '"markdown"' <<< "$BODY"; then
     pass "GET /api/evidence?institution=$EI&doc=$ED — document served"
+  elif [ "$HOSTED" = "1" ] && [ "$CODE" = "404" ]; then
+    pass "GET /api/evidence?doc=$ED — graceful 404 (dataset not in hosted image)"
   else
     fail "GET /api/evidence?doc=$ED — HTTP $CODE"
   fi
