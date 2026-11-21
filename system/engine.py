@@ -79,8 +79,14 @@ def _sopt(v):
 
 
 def _num(v, default=0.0):
+    if isinstance(v, (int, float)):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return default
     try:
-        return float(v)
+        s = re.sub(r"[£$€,\s]", "", str(v))
+        return float(s)
     except (TypeError, ValueError):
         return default
 
@@ -216,7 +222,7 @@ def person_surname(name):
 
 def same_person(a, b):
     """Match people: surname equal and (first initial equal or one name
-    contained in the other)."""
+    contained in the other). Company suffixes are not surnames."""
     if not a or not b:
         return False
     ta, tb = norm_name(a).split(), norm_name(b).split()
@@ -224,9 +230,13 @@ def same_person(a, b):
         return False
     if ta == tb:
         return True
-    if ta[-1] != tb[-1]:
+    pa = [t for t in ta if t not in COMPANY_SUFFIXES] or ta
+    pb = [t for t in tb if t not in COMPANY_SUFFIXES] or tb
+    if pa == pb:
+        return True
+    if pa[-1] != pb[-1]:
         return False
-    return ta[0][:1] == tb[0][:1] or ta[0] == tb[0]
+    return pa[0][:1] == pb[0][:1] or pa[0] == pb[0]
 
 
 def is_company(name):
@@ -2226,9 +2236,10 @@ class CaseCtx:
             reason = self.esc_reason(code, detail, ev)
             return self.finish("ESCALATE", code, reason, ev)
 
-        # 2) all alerts covered?
-        if all(self.alert_cov.get(a["alert_id"], False)
-               for a in self.alerts):
+        # 2) all alerts covered, and no unresolved gap of any kind?
+        if self.alerts and not self.gaps and all(
+                self.alert_cov.get(a["alert_id"], False)
+                for a in self.alerts):
             # own-account activity at >=5x declared needs an updated
             # profile first (POLICY: shared settings)
             own_amt = sum(
