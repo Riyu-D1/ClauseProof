@@ -1,0 +1,4 @@
+{"doc_id":"INV-9101","customer_id":"PLAY-C1","type":"invoice","title":"Invoice GAME/9001 from Gdansk Grain & Packaging Sp. z o.o.","dated":"2026-10-11","file":"evidence/INV-9101.md"}
+{"doc_id":"INV-9201","customer_id":"PLAY-C2","type":"invoice","title":"Invoice GAME/9001 from Volga Industrial Metals OOO","dated":"2026-10-11","file":"evidence/INV-9201.md"}
+{"doc_id":"INV-9301","customer_id":"PLAY-C3","type":"invoice","title":"Invoice GAME/9001 from Bosphorus Packaging AS","dated":"2026-10-11","file":"evidence/INV-9301.md"}
+{"doc_id":"STM-9501","customer_id":"PLAY-C5","type":"bank_statement","title":"Statement from Alderbeck Savings Bank","dated":"2026-10-10","file":"evidence/STM-9501.md"}

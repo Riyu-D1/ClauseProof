@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { validateInput } from "@/lib/play";
-import { getFeed, rateLimit, submitPlay } from "@/lib/play-run";
+import { getSharedFeed, persistAttempt, rateLimit, submitPlay } from "@/lib/play-run";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -11,10 +11,12 @@ const RUN_SCRIPT = join(resolve(process.cwd(), ".."), "system", "run");
 
 /**
  * GET /api/play — feed for the stage screen (latest attempt + leaderboard).
- * POST /api/play — submit a play; runs the real engine on a synthetic case.
+ *   Reads Supabase when configured; in-memory otherwise.
+ * POST /api/play — submit a play; runs the real engine on a synthetic case,
+ *   then persists the result to Supabase (falling back to memory silently).
  */
-export function GET() {
-  return NextResponse.json(getFeed(), {
+export async function GET() {
+  return NextResponse.json(await getSharedFeed(), {
     headers: { "cache-control": "no-store" },
   });
 }
@@ -42,9 +44,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const { attempt, ranEngine } = await submitPlay(input, persona, dest);
+    const persisted = await persistAttempt(attempt, input);
     return NextResponse.json({
       ok: true,
       attempt_id: attempt.id,
+      persisted,
       bucket: attempt.bucket,
       verdict: attempt.verdict,
       reason_code: attempt.reason_code,

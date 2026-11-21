@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import FlowGraph from "@/components/FlowGraph";
 import DecisionPath from "@/components/DecisionPath";
 import VerdictPill from "@/components/VerdictPill";
@@ -10,6 +11,7 @@ import type { Attempt, Bucket } from "@/lib/play-run";
 
 interface Feed {
   total: number;
+  source?: "supabase" | "memory";
   latest: Attempt | null;
   attempts: Omit<Attempt, "trace">[];
   board: Record<Bucket, { nickname: string; summary: string; reason_code: string | null }[]>;
@@ -34,22 +36,9 @@ export default function StagePage() {
   const [feed, setFeed] = useState<Feed | null>(null);
   const [playUrl, setPlayUrl] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
+  const [hosted, setHosted] = useState(false);
   const seenId = useRef<string | null>(null);
   const [runId, setRunId] = useState(0);
-
-  useEffect(() => {
-    fetch("/api/play/config", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => setPlayUrl(d.playUrl))
-      .catch(() => setPlayUrl(null));
-  }, []);
-
-  useEffect(() => {
-    if (!playUrl) return;
-    QRCode.toDataURL(playUrl, { margin: 1, width: 480, color: { dark: "#eef2f8", light: "#00000000" } })
-      .then(setQr)
-      .catch(() => setQr(null));
-  }, [playUrl]);
 
   const poll = useCallback(async () => {
     try {
@@ -64,6 +53,39 @@ export default function StagePage() {
       /* retry next tick */
     }
   }, []);
+
+  useEffect(() => {
+    let sb: SupabaseClient | null = null;
+    fetch("/api/play/config", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        setPlayUrl(d.playUrl);
+        setHosted(!!d.hosted);
+        // live leaderboard: refetch the moment any viewer's play lands
+        // in public.plays (the 2s poll below stays as the fallback)
+        if (d.supabase?.url && d.supabase?.key) {
+          sb = createClient(d.supabase.url, d.supabase.key);
+          sb.channel("cp-plays-feed")
+            .on(
+              "postgres_changes",
+              { event: "INSERT", schema: "public", table: "plays" },
+              () => void poll()
+            )
+            .subscribe();
+        }
+      })
+      .catch(() => setPlayUrl(null));
+    return () => {
+      if (sb) void sb.removeAllChannels();
+    };
+  }, [poll]);
+
+  useEffect(() => {
+    if (!playUrl) return;
+    QRCode.toDataURL(playUrl, { margin: 1, width: 480, color: { dark: "#eef2f8", light: "#00000000" } })
+      .then(setQr)
+      .catch(() => setQr(null));
+  }, [playUrl]);
 
   useEffect(() => {
     poll();
@@ -95,7 +117,10 @@ export default function StagePage() {
         <div className="flex items-center gap-6">
           <div className="mono text-right text-[11px] text-ink-500">
             <div><span className="doto text-[15px] text-ink-100">{feed?.total ?? 0}</span> attempts</div>
-            <div className="text-ink-600">synthetic · player-made</div>
+            <div className="text-ink-600">
+              synthetic · player-made{feed?.source === "supabase" ? " · shared live" : ""}
+            </div>
+            {hosted && <div className="text-ink-600">hosted · demo subset</div>}
           </div>
         </div>
       </header>

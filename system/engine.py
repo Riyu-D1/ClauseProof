@@ -245,7 +245,8 @@ def surname_in_text(name, text):
 
 class Doc:
     __slots__ = ("doc_id", "type", "title", "dated", "text", "fields",
-                 "tables", "amounts", "flags", "claims", "suspicion")
+                 "tables", "amounts", "flags", "claims", "suspicion",
+                 "grok_key", "grok_note")
 
     def __init__(self, meta, text):
         self.doc_id = meta["doc_id"]
@@ -259,6 +260,8 @@ class Doc:
         self.flags = set()
         self.claims = []        # structured facts used for coverage
         self.suspicion = []     # (esc_code, detail) pairs
+        self.grok_key = None    # grok_assist cache key, if Grok read it
+        self.grok_note = None   # grok_assist one-line note
         self._parse()
 
     def _parse(self):
@@ -963,7 +966,9 @@ HELD_PAYMENT_RE = re.compile(
 
 
 class Institution:
-    def __init__(self, folder):
+    def __init__(self, folder, assist=None):
+        self.assist = assist
+        self.grok_rule_notes = {}
         self.folder = folder
         self.name = os.path.basename(
             os.path.normpath(folder)) or "institution"
@@ -1021,6 +1026,7 @@ class Institution:
         # evidence: metadata + parsed text
         self.evidence_meta = {}
         self.docs = {}  # customer_id -> [Doc]
+        grok_candidates = []
         for meta in load_jsonl(self._f("evidence.jsonl", h)):
             n = _norm_evidence_meta(meta)
             if n is None:
@@ -1039,6 +1045,12 @@ class Institution:
                 continue
             if n["customer_id"]:
                 self.docs.setdefault(n["customer_id"], []).append(doc)
+            if assist is not None:
+                try:
+                    if assist.needs_doc(n, doc):
+                        grok_candidates.append((n, text, doc))
+                except Exception:
+                    pass
         for cid in self.docs:
             self.docs[cid].sort(key=lambda d: d.doc_id)
         # POLICY.md: the profile is detected from the policy text and the
@@ -1050,6 +1062,13 @@ class Institution:
         self.holds_payments = bool(
             HELD_PAYMENT_RE.search(self.policy_text)) or \
             any(c["held_payment_id"] for c in self.cases)
+        if assist is not None:
+            try:
+                assist.process_docs(grok_candidates)
+                self.grok_rule_notes = assist.assist_rules(
+                    self.alerts.values())
+            except Exception as e:
+                warn(f"grok assist failed ({e}); continuing without it")
         self.input_hash = h.hexdigest()
         self.txn_by_customer = {}
         for t in self.transactions.values():
@@ -2622,7 +2641,23 @@ class CaseCtx:
             "risk_context": rc,
             "engine_version": ENGINE_VERSION,
             "input_hash": self.inst.input_hash,
+            "grok": self.grok_trace(),
         }
+
+    def grok_trace(self):
+        assist = getattr(self.inst, "assist", None)
+        if assist is None or not getattr(assist, "enabled", False):
+            return None
+        docs = {}
+        for d in self.docs:
+            if d.grok_key:
+                docs[d.doc_id] = {"assisted_by": "grok",
+                                  "cache_key": d.grok_key,
+                                  "note": d.grok_note}
+        rules = {a["rule_id"]: self.inst.grok_rule_notes[a["rule_id"]]
+                 for a in self.alerts
+                 if a["rule_id"] in self.inst.grok_rule_notes}
+        return {"docs": docs, "rules": rules}
 
 
 # --------------------------------------------------------------------------
@@ -2765,44 +2800,63 @@ def _safe_filename(name):
 
 
 def main():
-    if len(sys.argv) != 3:
-        sys.stderr.write("usage: run <institution folder> <output file>\n")
+    grok_flag = "--grok" in sys.argv
+    trace_dir = None
+    args = []
+    it = iter(sys.argv[1:])
+    for a in it:
+        if a == "--grok":
+            continue
+        if a == "--trace-dir":
+            trace_dir = next(it, None)
+            continue
+        if a.startswith("--trace-dir="):
+            trace_dir = a.split("=", 1)[1]
+            continue
+        args.append(a)
+    if len(args) != 2 or trace_dir == "":
+        sys.stderr.write(
+            "usage: run [--grok] [--trace-dir DIR] "
+            "<institution folder> <output file>\n")
         sys.exit(2)
-    folder, outfile = sys.argv[1], sys.argv[2]
+    folder, outfile = args
     outdir = os.path.dirname(os.path.abspath(outfile))
+    # the scored output file is created first and independently; nothing
+    # auxiliary may prevent or corrupt it
     try:
         os.makedirs(outdir, exist_ok=True)
+        out = open(outfile, "w", encoding="utf-8", newline="\n")
     except OSError as e:
-        sys.stderr.write(f"engine: cannot create output dir {outdir}: "
-                         f"{e}\n")
+        sys.stderr.write(f"engine: cannot write {outfile}: {e}\n")
         sys.exit(1)
+    # auxiliary artifacts (traces, grok cache, grok summary) live under
+    # system/.cache so a run writes only its output file outside system/
+    aux_root = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            ".cache")
+    assist = None
     try:
-        inst = Institution(folder)
+        import grok_assist
+        assist = grok_assist.from_env(aux_root, grok_flag)
+    except Exception:
+        if grok_flag:
+            sys.stderr.write("grok: grok_assist.py unavailable; "
+                             "continuing without assist\n")
+    try:
+        inst = Institution(folder, assist=assist)
     except Exception as e:
         warn(f"could not load institution folder {folder}: {e}")
-        try:
-            open(outfile, "w").close()
-        except OSError:
-            sys.exit(1)
+        out.close()
         return
-    # the trace file is auxiliary for the demo UI; the official output
-    # must be written even when traces cannot be
+    run_dir = os.path.join(aux_root, inst.input_hash[:16])
     tr = None
     try:
-        traces_dir = os.path.join(outdir, "traces")
+        traces_dir = trace_dir or os.path.join(run_dir, "traces")
         os.makedirs(traces_dir, exist_ok=True)
         tr = open(os.path.join(
             traces_dir, _safe_filename(inst.name) + ".jsonl"),
             "w", encoding="utf-8", newline="\n")
     except OSError as e:
         warn(f"trace file unavailable ({e}); continuing without it")
-    try:
-        out = open(outfile, "w", encoding="utf-8", newline="\n")
-    except OSError as e:
-        sys.stderr.write(f"engine: cannot write {outfile}: {e}\n")
-        if tr:
-            tr.close()
-        sys.exit(1)
     with out:
         for case in inst.cases:
             trace = None
@@ -2830,6 +2884,21 @@ def main():
                     tr = None
     if tr is not None:
         tr.close()
+
+    if assist is not None and assist.enabled:
+        try:
+            summary = assist.summary()
+            os.makedirs(run_dir, exist_ok=True)
+            with open(os.path.join(run_dir, "grok_summary.json"),
+                      "w") as f:
+                json.dump(summary, f, indent=2, sort_keys=True)
+            sys.stderr.write("grok: " + json.dumps(
+                {k: summary[k] for k in
+                 ("docs_and_rules_examined", "docs_read_by_grok",
+                  "api_calls", "cache_hits", "invalid_answers",
+                  "call_failures", "budget_stops")}) + "\n")
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":

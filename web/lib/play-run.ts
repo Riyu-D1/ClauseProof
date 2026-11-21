@@ -2,6 +2,7 @@
 // keeps the attempts feed (in-memory) for the stage leaderboard.
 
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createSocket } from "node:dgram";
 import {
   copyFileSync, existsSync, mkdirSync, mkdtempSync,
@@ -9,14 +10,16 @@ import {
 } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir, networkInterfaces } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import type { CoverageRow, Trace } from "./types";
 import type { DestDef, Persona, PlayInput, Verdict } from "./play";
 import { buildSyntheticCase, type SyntheticCase } from "./play-case";
+import { getSupabase } from "./supabase";
 
 const ROOT = resolve(process.cwd(), "..");
 const SYSTEM_DIR = join(ROOT, "system");
 const INST_ROOT = join(ROOT, "institutions");
+const DEMO_INST_ROOT = join(ROOT, "demo", "institutions");
 const RUN_SCRIPT = join(SYSTEM_DIR, "run");
 const RUN_TIMEOUT_MS = 60_000;
 
@@ -78,8 +81,7 @@ export function rateLimit(deviceId: string): string | null {
   return null;
 }
 
-export function getFeed() {
-  const attempts = store.attempts;
+function buildFeed(attempts: Attempt[], source: "supabase" | "memory") {
   const latest = attempts[0] ?? null;
   const board: Record<Bucket, { nickname: string; summary: string; reason_code: string | null }[]> = {
     "CAUGHT": [],
@@ -91,6 +93,7 @@ export function getFeed() {
   }
   return {
     total: attempts.length,
+    source,
     latest,
     attempts: attempts.map((a) => {
       const { trace, ...meta } = a;
@@ -99,6 +102,128 @@ export function getFeed() {
     }),
     board,
   };
+}
+
+export function getFeed() {
+  return buildFeed(store.attempts, "memory");
+}
+
+/* ------------------------- supabase persistence -------------------------- */
+
+interface PlayRow {
+  id: string;
+  created_at: string;
+  nickname: string | null;
+  persona: string | null;
+  institution: string | null;
+  verdict: Verdict | null;
+  reason_code: string | null;
+  outcome: "CAUGHT" | "QUESTIONED" | "GOT_AWAY" | null;
+  play: { summary?: string; context?: string[] } | null;
+}
+
+export function deviceHash(deviceId: string): string {
+  return createHash("sha256").update(`clauseproof:${deviceId}`).digest("hex").slice(0, 24);
+}
+
+const outcomeOf = (b: Bucket): "CAUGHT" | "QUESTIONED" | "GOT_AWAY" =>
+  b === "GOT AWAY" ? "GOT_AWAY" : b;
+
+const bucketOf = (o: PlayRow["outcome"]): Bucket =>
+  o === "GOT_AWAY" ? "GOT AWAY" : o === "QUESTIONED" ? "QUESTIONED" : "CAUGHT";
+
+/**
+ * Insert the attempt into public.plays. Returns "supabase" on success,
+ * "memory" when unconfigured or on any failure — the in-memory feed above
+ * always has the attempt, so the demo keeps working either way.
+ */
+export async function persistAttempt(
+  attempt: Attempt, input: PlayInput
+): Promise<"supabase" | "memory"> {
+  const sb = getSupabase();
+  if (!sb) return "memory";
+  try {
+    const { deviceId, ...playInput } = input;
+    const { error } = await sb.from("plays").insert({
+      nickname: attempt.nickname.slice(0, 24),
+      persona: attempt.persona,
+      institution: attempt.institution,
+      verdict: attempt.verdict,
+      reason_code: attempt.reason_code,
+      outcome: outcomeOf(attempt.bucket),
+      play: { ...playInput, summary: attempt.summary, context: attempt.context },
+      result: attempt,
+      device_hash: deviceHash(deviceId),
+    });
+    if (error) {
+      console.warn("[play] supabase insert failed, keeping memory feed:", error.message);
+      return "memory";
+    }
+    return "supabase";
+  } catch {
+    console.warn("[play] supabase unreachable, keeping memory feed");
+    return "memory";
+  }
+}
+
+/**
+ * Shared leaderboard: latest plays from Supabase when configured (so every
+ * viewer sees the same board); silently falls back to this process's
+ * in-memory attempts when not. Two light queries: board scalars for the
+ * last 60 rows + the newest row's full result jsonb (trace for /stage).
+ * `attempts` meta rows carry what the columns hold; engine-only fields
+ * (alerts/evidence/flip/trace) are empty in the shared feed — /stage
+ * renders only latest+board.
+ */
+export async function getSharedFeed() {
+  const sb = getSupabase();
+  if (!sb) return getFeed();
+  try {
+    const { data: rows, error } = await sb
+      .from("plays")
+      .select("id,created_at,nickname,persona,institution,verdict,reason_code,outcome,play")
+      .order("created_at", { ascending: false })
+      .limit(MAX_ATTEMPTS);
+    if (error) {
+      console.warn("[play] supabase select failed, using memory feed:", error.message);
+      return getFeed();
+    }
+    const attempts: Attempt[] = (rows as PlayRow[]).map((r) => ({
+      id: r.id,
+      seq: 0,
+      ts: Date.parse(r.created_at),
+      nickname: r.nickname ?? "anon",
+      persona: r.persona ?? "",
+      institution: r.institution ?? "",
+      bucket: bucketOf(r.outcome),
+      verdict: r.verdict ?? "CLOSE",
+      reason_code: r.reason_code,
+      reason: null,
+      evidence: [],
+      alerts: [],
+      alert_count: 0,
+      flagged_gbp: 0,
+      flip: null,
+      context: r.play?.context ?? [],
+      summary: r.play?.summary ?? "",
+      trace: null,
+      synthetic: true,
+    }));
+    if (attempts.length > 0) {
+      const { data: lrow } = await sb
+        .from("plays")
+        .select("id,result")
+        .eq("id", attempts[0].id)
+        .single();
+      if (lrow?.result) {
+        attempts[0] = { ...(lrow.result as Attempt), id: lrow.id as string };
+      }
+    }
+    return buildFeed(attempts, "supabase");
+  } catch {
+    console.warn("[play] supabase unreachable, using memory feed");
+    return getFeed();
+  }
 }
 
 function addAttempt(a: Omit<Attempt, "id" | "seq" | "ts" | "synthetic">): Attempt {
@@ -126,7 +251,7 @@ function enqueue<T>(job: () => Promise<T>): Promise<T> {
 
 function runEngine(instDir: string, outFile: string): Promise<void> {
   return new Promise((res, rej) => {
-    const child = spawn(RUN_SCRIPT, [instDir, outFile], {
+    const child = spawn(RUN_SCRIPT, ["--trace-dir", join(dirname(outFile), "traces"), instDir, outFile], {
       cwd: SYSTEM_DIR,
       stdio: ["ignore", "ignore", "pipe"],
     });
@@ -148,11 +273,19 @@ function runEngine(instDir: string, outFile: string): Promise<void> {
   });
 }
 
+/** The private dataset when checked out locally; the bundled synthetic
+ * demo subset (demo/institutions/) in the hosted image. */
+function instSourceDir(institution: string): string {
+  const real = join(INST_ROOT, institution);
+  if (existsSync(join(real, "POLICY.md"))) return real;
+  return join(DEMO_INST_ROOT, institution);
+}
+
 function writeCase(sc: SyntheticCase): { instDir: string; tmp: string } {
   const tmp = mkdtempSync(join(tmpdir(), "cp-play-"));
   const instDir = join(tmp, sc.institution); // basename must be the institution id
   mkdirSync(join(instDir, "evidence"), { recursive: true });
-  const realInst = realpathSync(join(INST_ROOT, sc.institution));
+  const realInst = realpathSync(instSourceDir(sc.institution));
   for (const [rel, content] of Object.entries(sc.files)) {
     const p = join(instDir, rel);
     if (content === "@@POLICY@@") {
