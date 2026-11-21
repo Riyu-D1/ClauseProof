@@ -175,7 +175,8 @@ def surname_in_text(name, text):
 
 class Doc:
     __slots__ = ("doc_id", "type", "title", "dated", "text", "fields",
-                 "tables", "amounts", "flags", "claims", "suspicion")
+                 "tables", "amounts", "flags", "claims", "suspicion",
+                 "grok_key", "grok_note")
 
     def __init__(self, meta, text):
         self.doc_id = meta["doc_id"]
@@ -189,6 +190,8 @@ class Doc:
         self.flags = set()
         self.claims = []        # structured facts used for coverage
         self.suspicion = []     # (esc_code, detail) pairs
+        self.grok_key = None    # grok_assist cache key, if Grok read it
+        self.grok_note = None   # grok_assist one-line note
         self._parse()
 
     def _parse(self):
@@ -769,7 +772,9 @@ def load_jsonl(path):
 
 
 class Institution:
-    def __init__(self, folder):
+    def __init__(self, folder, assist=None):
+        self.assist = assist
+        self.grok_rule_notes = {}
         self.folder = folder
         self.name = os.path.basename(os.path.normpath(folder))
         h = hashlib.sha256()
@@ -791,6 +796,7 @@ class Institution:
         self.evidence_meta = {}
         self.docs = {}  # customer_id -> [Doc]
         ev_dir = os.path.join(folder, "evidence")
+        grok_candidates = []
         for meta in load_jsonl(self._f("evidence.jsonl", h)):
             self.evidence_meta[meta["doc_id"]] = meta
             path = os.path.join(folder, meta["file"])
@@ -801,9 +807,15 @@ class Institution:
             except OSError:
                 text = ""
             doc = Doc(meta, text)
+            if assist is not None and assist.needs_doc(meta, doc):
+                grok_candidates.append((meta, text, doc))
             self.docs.setdefault(meta["customer_id"], []).append(doc)
         for cid in self.docs:
             self.docs[cid].sort(key=lambda d: d.doc_id)
+        if assist is not None:
+            assist.process_docs(grok_candidates)
+            self.grok_rule_notes = assist.assist_rules(
+                self.alerts.values())
         self.input_hash = h.hexdigest()
         self.txn_by_customer = {}
         for t in self.transactions.values():
@@ -2300,7 +2312,23 @@ class CaseCtx:
             "risk_context": rc,
             "engine_version": ENGINE_VERSION,
             "input_hash": self.inst.input_hash,
+            "grok": self.grok_trace(),
         }
+
+    def grok_trace(self):
+        assist = getattr(self.inst, "assist", None)
+        if assist is None or not getattr(assist, "enabled", False):
+            return None
+        docs = {}
+        for d in self.docs:
+            if d.grok_key:
+                docs[d.doc_id] = {"assisted_by": "grok",
+                                  "cache_key": d.grok_key,
+                                  "note": d.grok_note}
+        rules = {a["rule_id"]: self.inst.grok_rule_notes[a["rule_id"]]
+                 for a in self.alerts
+                 if a["rule_id"] in self.inst.grok_rule_notes}
+        return {"docs": docs, "rules": rules}
 
 
 # --------------------------------------------------------------------------
@@ -2414,13 +2442,24 @@ def compute_flip(ctx, result):
 # --------------------------------------------------------------------------
 
 def main():
-    if len(sys.argv) != 3:
-        sys.stderr.write("usage: run <institution folder> <output file>\n")
+    grok_flag = "--grok" in sys.argv
+    args = [a for a in sys.argv[1:] if a != "--grok"]
+    if len(args) != 2:
+        sys.stderr.write(
+            "usage: run [--grok] <institution folder> <output file>\n")
         sys.exit(2)
-    folder, outfile = sys.argv[1], sys.argv[2]
-    inst = Institution(folder)
+    folder, outfile = args
     outdir = os.path.dirname(os.path.abspath(outfile))
     os.makedirs(outdir, exist_ok=True)
+    assist = None
+    try:
+        import grok_assist
+        assist = grok_assist.from_env(outdir, grok_flag)
+    except ImportError:
+        if grok_flag:
+            sys.stderr.write("grok: grok_assist.py unavailable; "
+                             "continuing without assist\n")
+    inst = Institution(folder, assist=assist)
     traces_dir = os.path.join(outdir, "traces")
     os.makedirs(traces_dir, exist_ok=True)
     trace_path = os.path.join(traces_dir, inst.name + ".jsonl")
@@ -2434,6 +2473,16 @@ def main():
             trace["flip"] = flip
             out.write(json.dumps(res, ensure_ascii=False) + "\n")
             tr.write(json.dumps(trace, ensure_ascii=False) + "\n")
+
+    if assist is not None and assist.enabled:
+        summary = assist.summary()
+        with open(os.path.join(outdir, "grok_summary.json"), "w") as f:
+            json.dump(summary, f, indent=2, sort_keys=True)
+        sys.stderr.write("grok: " + json.dumps(
+            {k: summary[k] for k in
+             ("docs_and_rules_examined", "docs_read_by_grok", "api_calls",
+              "cache_hits", "invalid_answers", "call_failures",
+              "budget_stops")}) + "\n")
 
 
 if __name__ == "__main__":
