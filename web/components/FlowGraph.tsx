@@ -383,7 +383,7 @@ function GraphInner({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
+        fitViewOptions={{ padding: 0.22, maxZoom: 1.1 }}
         minZoom={0.3}
         maxZoom={1.6}
         nodesDraggable={false}
@@ -404,7 +404,7 @@ function GraphInner({
         </span>
         <span className="flex items-center gap-1.5 text-ink-300">
           <span className="inline-block h-[3px] w-5" style={{ background: COVERED }} />
-          covered {gbpShort(model.coveredTotal)} · {model.coveredRows} txns — document attached
+          covered {gbpShort(model.coveredTotal)} · {model.coveredRows} txns
         </span>
         <span className="flex items-center gap-1.5 text-ink-300">
           <span className="inline-block h-[3px] w-5" style={{ background: UNCOVERED }} />
