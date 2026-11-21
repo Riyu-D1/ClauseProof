@@ -16,9 +16,7 @@ function Row({ k, children }: { k: string; children: React.ReactNode }) {
 
 export default function CustomerCard({ trace }: { trace: Trace }) {
   const c = trace.customer;
-  const observed = trace.coverage
-    .filter((r) => r.direction === "in")
-    .reduce((s, r) => s + r.amount_gbp, 0);
+  const observed = trace.coverage.reduce((s, r) => s + r.amount_gbp, 0);
   const multiple =
     c.declared_monthly_gbp && c.declared_monthly_gbp > 0
       ? observed / c.declared_monthly_gbp
@@ -53,7 +51,7 @@ export default function CustomerCard({ trace }: { trace: Trace }) {
           DECLARED vs OBSERVED
         </div>
         <Row k="declared /mo">{gbp(c.declared_monthly_gbp)}</Row>
-        <Row k="flagged in">
+        <Row k="flagged">
           <span className={multiple && multiple > 1 ? "text-rfi" : ""}>{gbp(observed)}</span>
         </Row>
         {multiple != null && (

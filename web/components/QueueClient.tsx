@@ -200,7 +200,7 @@ export default function QueueClient({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search cases, customers, counterparties…"
-              className="mono w-[300px] rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-ink-100 outline-none placeholder:text-ink-600 focus:border-[#37e0d860]"
+              className="mono w-[300px] rounded-lg border border-white/10 bg-white/[0.03] py-2 pl-3 pr-8 text-[12px] text-ink-100 outline-none placeholder:text-ink-600 focus:border-[#37e0d860]"
             />
             <span className="kbd absolute right-2.5 top-1/2 -translate-y-1/2">/</span>
           </div>
@@ -245,6 +245,14 @@ export default function QueueClient({
                   <span className="truncate text-[11.5px] text-ink-500">{t.customer.name}</span>
                 </div>
                 <div className="flex flex-1 flex-wrap items-center gap-1.5">
+                  {t.customer.held_payment_id && (
+                    <span
+                      className="mono rounded-md border border-[#ffb02055] bg-[#ffb02012] px-1.5 py-0.5 text-[10px] font-semibold text-rfi"
+                      title="An outgoing payment is held until this case is decided"
+                    >
+                      ⏸ HELD
+                    </span>
+                  )}
                   {t.alerts.slice(0, 3).map((a) => (
                     <span
                       key={a.alert_id}

@@ -14,7 +14,7 @@ export default async function CasePage({
   const manifest = getManifest();
   const found = findCase(id);
   return (
-    <main className="relative z-10 mx-auto flex h-screen max-w-[1600px] flex-col overflow-hidden">
+    <main className="relative z-10 mx-auto flex min-h-screen max-w-[1600px] flex-col">
       <TopBar fixture={manifest?.fixture ?? false} />
       {found ? (
         <CaseBoard

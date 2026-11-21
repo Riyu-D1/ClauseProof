@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import CustomerCard from "@/components/CustomerCard";
@@ -44,7 +45,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
   }, [doc, next, prev, router]);
 
   return (
-    <div className="flex h-[calc(100vh-57px)] flex-col gap-3 p-4">
+    <div className="flex min-h-[calc(100vh-57px)] flex-col gap-3 p-4 xl:h-[calc(100vh-57px)] xl:overflow-hidden">
       {/* header strip */}
       <div className="flex items-center gap-3">
         <button
@@ -95,16 +96,31 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
       </div>
 
       {/* main board */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[290px_minmax(0,1fr)_360px]">
-        <div className="min-h-0 overflow-y-auto">
+      <div className="grid flex-1 grid-cols-1 gap-3 xl:min-h-0 xl:grid-cols-[290px_minmax(0,1fr)_360px]">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="min-h-0 xl:overflow-y-auto"
+        >
           <CustomerCard trace={trace} />
-        </div>
-        <div className="panel relative min-h-[460px] overflow-hidden xl:min-h-0">
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.985 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.45, delay: 0.08 }}
+          className="panel relative min-h-[460px] overflow-hidden xl:min-h-0"
+        >
           <FlowGraph trace={trace} onDoc={onDoc} />
-        </div>
-        <div className="panel min-h-[400px] overflow-y-auto p-4 xl:min-h-0">
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.16 }}
+          className="panel min-h-[400px] overflow-y-auto p-4 xl:min-h-0"
+        >
           <DecisionPath trace={trace} runId={runId} onDoc={onDoc} />
-        </div>
+        </motion.div>
       </div>
 
       <FlipCard trace={trace} />

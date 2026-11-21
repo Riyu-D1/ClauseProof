@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import VerdictPill from "@/components/VerdictPill";
 import { VERDICT_COLOR } from "@/lib/format";
 import type { Trace } from "@/lib/types";
@@ -35,6 +35,13 @@ export default function DecisionPath({
 
   const verdictShown = shown > steps.length;
   const c = VERDICT_COLOR[trace.verdict];
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // keep the newest step in view as the path reveals
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [shown]);
 
   return (
     <div className="flex h-full flex-col">
@@ -43,7 +50,7 @@ export default function DecisionPath({
         <span className="text-ink-600">{trace.engine_version}</span>
       </div>
 
-      <div className="relative flex-1 overflow-y-auto pr-1">
+      <div ref={scrollRef} className="relative flex-1 overflow-y-auto pr-1">
         {/* spine */}
         <div className="absolute bottom-2 left-[13px] top-2 w-px bg-white/[0.07]" />
         <div className="flex flex-col gap-3">
