@@ -1,0 +1,8 @@
+institutions
+.env
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.venv/
+cache/
