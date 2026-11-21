@@ -1,12 +1,16 @@
 import LiveClient from "@/components/LiveClient";
-import TopBar from "@/components/TopBar";
+import PageCaption from "@/components/PageCaption";
 
 export const dynamic = "force-dynamic";
 
 export default function LivePage() {
   return (
     <main className="relative z-10 mx-auto flex min-h-screen max-w-[1500px] flex-col">
-      <TopBar fixture={false} />
+      <PageCaption>
+        Describe any customer and what their money did — a parser fills an
+        editable scenario card, the monitoring rules fire honestly, and the real
+        deterministic engine decides. Nothing is preset.
+      </PageCaption>
       <LiveClient />
     </main>
   );
