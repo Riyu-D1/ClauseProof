@@ -7,10 +7,40 @@ list — and decides for every case: **CLOSE**, **RFI** (ask the customer for
 one specific thing) or **ESCALATE** to the MLRO — with a `reason_code`, a
 2–4 sentence reason naming the exact facts relied on, and the evidence IDs.
 
+## For judges — start here
+
+**Web app (no install):** https://clauseproof-c1gd.onrender.com
+(free hosting: the first load after it has been idle can take about 30 seconds.)
+
+- **`/run` — test your own dataset.** Zip one institution folder (POLICY.md, alerts, cases, customers, transactions, evidence, internal_list, previous_reviews), upload it, and the app runs `system/run` 5 times, shows the SHA-256 of each output (IDENTICAL when they match), runs `system/validate.py`, and lets you download the output JSONL.
+- **`/live`** — describe a scenario in plain English and the real engine decides it against the real policy.
+- **`/play` + `/stage`** — Beat the Analyst: invent a laundering scheme on your phone, watch the verdict on the big screen.
+- **`/` and `/queue`** — the analyst case queue, with policy-quoted reasoning for every case.
+
+**Command line (official contract, Python 3 stdlib only, no pip install):**
+
+```bash
+git clone https://github.com/Riyu-D1/ClauseProof && cd ClauseProof
+system/run /path/to/institutions/bank /tmp/bank.jsonl      # one institution per call
+python3 system/validate.py /path/to/institutions/bank /tmp/bank.jsonl
+```
+
+Each output line is one case:
+`{"case_id", "alert_ids", "verdict": "CLOSE|RFI|ESCALATE", "reason_code", "reason", "evidence"}`.
+Run it as many times as you like; the output file is byte-identical every time
+(`shasum -a 256` to check). `system/run` reads only the folder it is given and
+writes only its output file (plus its own cache inside `system/`).
+
+**Grok:** off by default, so the verdicts come from the deterministic engine alone.
+With `--grok` Grok reads unstructured documents
+such as prose purchase orders at temperature 0 with a fixed seed. Its answers are
+cached by input hash, and committed fixtures live in `system/grok_fixtures/`.
+Grok never decides a verdict, so repeat runs stay byte-identical.
+
 ## Why it is different
 
 - **Deterministic policy-as-code.** The engine is pure Python 3 stdlib — no
-  LLM, no randomness, no clock, sorted iteration everywhere. Five runs of 800
+  LLM in the decision, no randomness, no clock, sorted iteration everywhere. Five runs of 800
   unseen cases produce byte-identical output; `system/check_repro.sh` proves
   it 5× per institution, and the app re-proves it live.
 - **Explain-every-pound coverage.** For every alerted transaction the engine
@@ -50,7 +80,7 @@ Smoke test the running app end to end:
 
 ## Live demo
 
-**Public URL:** `https://<FILL IN — e.g. clauseproof.onrender.com>` — open it on
+**Public URL:** https://clauseproof-c1gd.onrender.com — open it on
 a phone: `/` is the queue, `/play` is the game, `/stage` is the shared
 scoreboard (game plays appear live via Supabase realtime).
 
