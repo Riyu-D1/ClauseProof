@@ -90,8 +90,10 @@ export interface LiveScenario {
 export interface ParseOutcome {
   scenario: LiveScenario;
   parser: "local" | "grok" | "openai";
-  /** honest notes about what the parser guessed */
+  /** honest notes about what the parser guessed (or why the LLM didn't run) */
   notes: string[];
+  /** wall-clock parse time in ms — shown on the parser badge */
+  ms?: number;
 }
 
 /* ------------------------------- vocabulary ------------------------------ */
@@ -164,36 +166,28 @@ export const PAYEE_ACCT_NO = "63-09-18 55420136";
 
 export const EXAMPLE_PROMPTS: { label: string; text: string }[] = [
   {
-    label: "The student",
+    label: "Money mule",
     text: "A student who earns £800 a month gets £9,000 from 6 strangers in a day and sends it to Dubai an hour later",
   },
   {
-    label: "The café",
+    label: "Structuring",
+    text: "A waiter earning £1,900 a month pays in £9,500 cash three times in a week, each just under the £10,000 reporting threshold",
+  },
+  {
+    label: "Legit invoice",
     text: "A café pays its coffee supplier £12,000 with a matching invoice",
-  },
-  {
-    label: "Cash deposits",
-    text: "A waiter pays in £9,500 cash three times in a week, then sends £25,000 to an account in Russia",
-  },
-  {
-    label: "The inheritance",
-    text: "A nurse who earns £2,800 a month gets £18,000 from a solicitor with a letter about her late aunt's estate",
-  },
-  {
-    label: "The uncle",
-    text: "A student gets £12,000 from her uncle with a gift letter on file",
-  },
-  {
-    label: "Fund flip",
-    text: "An investor on £4,000 a month deposits £20,000 from her own account, buys fund units and sells them back 20 days later",
   },
   {
     label: "Own account",
     text: "A landlord gets £14,000 from tenants and moves it to his own savings account, with a bank statement proving it is his",
   },
   {
-    label: "Dormant account",
-    text: "An account unused for two years suddenly gets £8,000 and sends it abroad within hours",
+    label: "Refund",
+    text: "A nurse gets £3,200 back from Volaria Travel Ltd as a refund of an earlier payment, with a letter confirming the refund",
+  },
+  {
+    label: "Crypto",
+    text: "A developer who earns £4,000 a month gets £9,000 from 5 different people and sends it to a crypto exchange the next day",
   },
 ];
 

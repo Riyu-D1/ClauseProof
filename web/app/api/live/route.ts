@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { parseScenario } from "@/lib/live-llm";
+import { parseScenario, configuredLlmTag } from "@/lib/live-llm";
 import { normalizeScenario } from "@/lib/live-scenario";
 import { runLiveScenario } from "@/lib/live-run";
 
@@ -12,11 +12,14 @@ const RUN_SCRIPT = join(resolve(process.cwd(), ".."), "system", "run");
 
 /**
  * POST /api/live
- *  { mode: "parse", text }      → { scenario, parser, notes }
- *  { mode: "run",   scenario }  → { scenario, result }
- *  { mode: "go",    text }      → parse + run in one round-trip
+ *  { mode: "parse", text, useLlm? }  → { scenario, parser, notes, parseMs, llmTag }
+ *  { mode: "run",   scenario }       → { scenario, result }
+ *  { mode: "go",    text, useLlm? }  → parse + run in one round-trip
  * The verdict always comes from the deterministic engine (system/run);
  * parsing only fills the editable scenario card.
+ *
+ * Runs happen only when the client explicitly asks — this route never
+ * schedules, polls or chains calls.
  */
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -27,6 +30,8 @@ export async function POST(req: NextRequest) {
   }
   const b = (body ?? {}) as Record<string, unknown>;
   const mode = String(b.mode ?? "");
+  const useLlm = b.useLlm !== false;
+  const llmTag = configuredLlmTag();
 
   if (!existsSync(RUN_SCRIPT)) {
     return NextResponse.json(
@@ -44,15 +49,22 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      const parsed = await parseScenario(text);
+      const parsed = await parseScenario(text, { useLlm });
+      const payload = {
+        scenario: parsed.scenario,
+        parser: parsed.parser,
+        notes: parsed.notes,
+        parseMs: parsed.ms ?? null,
+        llmTag,
+      };
       if (mode === "parse") {
-        return NextResponse.json(parsed, {
+        return NextResponse.json(payload, {
           headers: { "cache-control": "no-store" },
         });
       }
       const result = await runLiveScenario(parsed.scenario);
       return NextResponse.json(
-        { ...parsed, result },
+        { ...payload, result },
         { headers: { "cache-control": "no-store" } }
       );
     }
