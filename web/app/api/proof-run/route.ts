@@ -17,6 +17,7 @@ export const maxDuration = 300;
 const ROOT = resolve(process.cwd(), "..");
 const SYSTEM_DIR = join(ROOT, "system");
 const INST_ROOT = join(ROOT, "institutions");
+const DEMO_INST_ROOT = join(ROOT, "demo", "institutions");
 const VALID = new Set(["bank", "emoney", "investment", "payments_fx"]);
 const RUNS = 5;
 
@@ -54,6 +55,11 @@ function runOnce(
  * Streams NDJSON: {type:"start"} → {type:"run",n,ms,hash} ×5 → {type:"done",identical,hashes,total_ms}
  * Runs the real engine 5× on the chosen institution into a temp dir and
  * SHA-256s each official output file — the live reproducibility proof.
+ *
+ * Dataset the run uses, reported as `dataset` on start/done events:
+ *  - "full"        the private development dataset (local checkout)
+ *  - "demo-subset" the bundled synthetic demo institutions (hosted image)
+ * Either way it is a real engine run — never a replayed recording.
  */
 export async function POST(req: NextRequest) {
   let institution = "";
@@ -66,8 +72,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "bad institution" }, { status: 400 });
   }
   const runScript = join(SYSTEM_DIR, "run");
-  const instDir = join(INST_ROOT, institution);
-  if (!existsSync(runScript) || !existsSync(instDir)) {
+  const fullDir = join(INST_ROOT, institution);
+  const demoDir = join(DEMO_INST_ROOT, institution);
+  const hasFull = existsSync(join(fullDir, "cases.jsonl"));
+  const instDir = hasFull ? fullDir : demoDir;
+  const dataset = hasFull ? "full" : "demo-subset";
+  if (!existsSync(runScript) || !existsSync(join(instDir, "cases.jsonl"))) {
     return NextResponse.json({ error: "engine not found" }, { status: 500 });
   }
   if (inFlight) {
@@ -93,7 +103,7 @@ export async function POST(req: NextRequest) {
       const t0 = Date.now();
       try {
         const absInst = realpathSync(instDir);
-        send({ type: "start", institution, runs: RUNS });
+        send({ type: "start", institution, runs: RUNS, dataset });
         const hashes: string[] = [];
         for (let i = 1; i <= RUNS; i++) {
           const out = join(tmp, `${institution}_${i}.jsonl`);
@@ -108,6 +118,7 @@ export async function POST(req: NextRequest) {
           identical: new Set(hashes).size === 1,
           hashes,
           total_ms: Date.now() - t0,
+          dataset,
         });
       } catch (e) {
         send({ type: "error", message: e instanceof Error ? e.message : String(e) });
