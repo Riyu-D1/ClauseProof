@@ -14,15 +14,18 @@ import {
   ROTATING_PLACEHOLDERS,
   newDocId,
   newPayId,
+  parseScenarioLocal,
   type LiveChannel,
   type LiveDoc,
   type LiveDocType,
   type LiveInstitution,
   type LivePayment,
   type LiveScenario,
+  type ParseOutcome,
 } from "@/lib/live-scenario";
 import { suggestFlips } from "@/lib/live-flips";
 import type { LiveResult } from "@/lib/live-run";
+import { LivePreview, TemplateBuilder } from "@/components/LiveTemplate";
 
 type ParserTag = "local" | "grok" | "openai";
 
@@ -68,26 +71,33 @@ function verdictOf(r: LiveResult | null): Verdict | "NO_ALERT" | null {
   return r.verdict === "NO_ALERT" ? "NO_ALERT" : (r.verdict as Verdict);
 }
 
-export default function LiveClient() {
+export default function LiveClient({
+  llmTag = null,
+}: {
+  /** which LLM the parse toggle offers — null hides the switch entirely */
+  llmTag?: "grok" | "openai" | null;
+}) {
   const [text, setText] = useState("");
   const [phIdx, setPhIdx] = useState(0);
   const [scenario, setScenario] = useState<LiveScenario | null>(null);
   const [parser, setParser] = useState<ParserTag | null>(null);
+  const [parseMs, setParseMs] = useState<number | null>(null);
   const [notes, setNotes] = useState<string[]>([]);
   const [result, setResult] = useState<LiveResult | null>(null);
   const [prevVerdict, setPrevVerdict] = useState<string | null>(null);
   const [running, setRunning] = useState<"parse" | "run" | null>(null);
-  const [useGrok, setUseGrok] = useState(false);
-  const [parseMs, setParseMs] = useState<number | null>(null);
   const [runMs, setRunMs] = useState<number | null>(null);
   const [runId, setRunId] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [doc, setDoc] = useState<string | null>(null);
   const [instLocked, setInstLocked] = useState(false);
-  const scenarioRef = useRef<LiveScenario | null>(null);
+  const [useLlm, setUseLlm] = useState(true);
+  /** card edited since the last run — edits never fire a run themselves */
+  const [dirty, setDirty] = useState(false);
+  const [preview, setPreview] = useState<ParseOutcome | null>(null);
+  /** the text the current scenario was parsed from */
+  const [ranText, setRanText] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasRun = useRef(false);
-  scenarioRef.current = scenario;
 
   // rotating placeholder
   useEffect(() => {
@@ -98,6 +108,8 @@ export default function LiveClient() {
     return () => clearInterval(t);
   }, []);
 
+  // One engine run = one POST, and only ever from an explicit user action:
+  // the Run button, an example chip, a flip chip, or the card's RE-RUN.
   const runScenario = useCallback(async (s: LiveScenario) => {
     setRunning("run");
     setError(null);
@@ -111,6 +123,7 @@ export default function LiveClient() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "run failed");
       setScenario(data.scenario);
+      setDirty(false);
       setResult((prev) => {
         if (prev && prev.verdict !== data.result.verdict) {
           setPrevVerdict(prev.verdict);
@@ -121,7 +134,6 @@ export default function LiveClient() {
       });
       setRunMs(Math.round(performance.now() - t0));
       setRunId((n) => n + 1);
-      hasRun.current = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "engine failed");
     } finally {
@@ -130,7 +142,7 @@ export default function LiveClient() {
   }, []);
 
   const parseAndRun = useCallback(
-    async (input: string, grok: boolean) => {
+    async (input: string) => {
       setRunning("parse");
       setError(null);
       const t0 = performance.now();
@@ -138,15 +150,17 @@ export default function LiveClient() {
         const res = await fetch("/api/live", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ mode: "go", text: input, parser: grok ? "grok" : "local" }),
+          body: JSON.stringify({ mode: "go", text: input, useLlm }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "failed");
         setScenario(data.scenario);
         setParser(data.parser as ParserTag);
-        setParseMs(typeof data.parse_ms === "number" ? data.parse_ms : null);
+        setParseMs(typeof data.parseMs === "number" ? data.parseMs : null);
         setNotes(data.notes ?? []);
         setInstLocked(false);
+        setDirty(false);
+        setRanText(input);
         setResult((prev) => {
           if (prev && prev.verdict !== data.result.verdict) {
             setPrevVerdict(prev.verdict);
@@ -157,29 +171,34 @@ export default function LiveClient() {
         });
         setRunMs(Math.round(performance.now() - t0));
         setRunId((n) => n + 1);
-        hasRun.current = true;
       } catch (e) {
         setError(e instanceof Error ? e.message : "failed");
       } finally {
         setRunning(null);
       }
     },
-    []
+    [useLlm]
   );
 
-  // auto re-run when the card is edited (after the first run)
+  // "what I understood" preview — debounced LOCAL parse of the text box.
+  // Pure client-side: no fetch, no engine run, ever.
   useEffect(() => {
-    if (!hasRun.current || !scenario) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    const q = text.trim();
+    if (q.length < 12 || q === ranText) {
+      setPreview(null);
+      return;
+    }
     debounceRef.current = setTimeout(() => {
-      if (scenarioRef.current) void runScenario(scenarioRef.current);
-    }, 700);
+      setPreview(parseScenarioLocal(q));
+    }, 450);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [scenario, runScenario]);
+  }, [text, ranText]);
 
   const edit = useCallback((fn: (s: LiveScenario) => LiveScenario) => {
+    setDirty(true);
     setScenario((s) => (s ? fn(s) : s));
   }, []);
 
@@ -215,7 +234,7 @@ export default function LiveClient() {
           {parser && (
             <span className="rounded border border-line-2 bg-obsidian-800 px-2 py-1 tracking-[0.12em] text-ink-300">
               {PARSER_LABEL[parser].toUpperCase()}
-              {parseMs != null ? ` · ${parseMs >= 1000 ? `${(parseMs / 1000).toFixed(1)}s` : `${parseMs}ms`}` : ""}
+              {parseMs != null && ` · ${parseMs}MS`}
             </span>
           )}
           <span className="rounded border border-accent/40 bg-obsidian-800 px-2 py-1 tracking-[0.12em] text-accent">
@@ -239,7 +258,7 @@ export default function LiveClient() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (text.trim() && !running) void parseAndRun(text.trim(), useGrok);
+                  if (text.trim() && !running) void parseAndRun(text.trim());
                 }
               }}
               rows={4}
@@ -247,39 +266,46 @@ export default function LiveClient() {
               className={`${INPUT} mt-3 resize-none !text-[13px] leading-relaxed`}
             />
             <div className="mt-3 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col gap-1">
                 <span className="mono text-[9.5px] text-ink-600">
                   Enter ↵ to run · Shift+Enter for a new line
                 </span>
-                <button
-                  onClick={() => setUseGrok((g) => !g)}
-                  className={`mono flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold tracking-[0.1em] transition-colors ${
-                    useGrok
-                      ? "border-accent bg-accent/10 text-accent"
-                      : "border-line text-ink-500 hover:border-line-2 hover:text-ink-300"
-                  }`}
-                  title="Off: the instant local parser. On: Grok structures the text (6s cap, local fallback — it can never block the run). The engine still decides."
-                  aria-pressed={useGrok}
-                >
-                  <span
-                    className="inline-block h-[5px] w-[5px] rounded-full"
-                    style={{ background: useGrok ? "var(--color-accent)" : "var(--color-ink-600)" }}
-                  />
-                  PARSE WITH GROK {useGrok ? "ON" : "OFF"}
-                </button>
+                {llmTag && (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={useLlm}
+                    onClick={() => setUseLlm((v) => !v)}
+                    className="mono flex items-center gap-1.5 text-[9.5px] text-ink-400 transition-colors hover:text-ink-200"
+                    title={
+                      useLlm
+                        ? `free text is parsed by ${llmTag === "grok" ? "Grok" : "OpenAI"} (server-side key, never shown)`
+                        : "free text is parsed by the deterministic local parser"
+                    }
+                  >
+                    <span
+                      className={`relative inline-block h-[14px] w-[26px] shrink-0 rounded-full border transition-colors ${
+                        useLlm
+                          ? "border-accent bg-accent/30"
+                          : "border-line-2 bg-obsidian-900"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-[1px] h-[10px] w-[10px] rounded-full transition-all ${
+                          useLlm ? "left-[13px] bg-accent" : "left-[2px] bg-ink-500"
+                        }`}
+                      />
+                    </span>
+                    PARSE WITH {llmTag === "grok" ? "GROK" : "OPENAI"}
+                  </button>
+                )}
               </div>
               <button
-                onClick={() => text.trim() && void parseAndRun(text.trim(), useGrok)}
+                onClick={() => text.trim() && void parseAndRun(text.trim())}
                 disabled={!text.trim() || !!running}
                 className="mono rounded-md border border-accent bg-accent px-4 py-1.5 text-[11px] font-bold tracking-[0.14em] text-obsidian-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                {running === "parse"
-                  ? useGrok
-                    ? "GROK PARSING…"
-                    : "PARSING…"
-                  : running === "run"
-                    ? "RUNNING…"
-                    : "RUN THE ENGINE →"}
+                {running === "parse" ? "PARSING…" : running === "run" ? "RUNNING…" : "RUN THE ENGINE →"}
               </button>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -290,13 +316,15 @@ export default function LiveClient() {
                   title={e.text}
                   onClick={() => {
                     setText(e.text);
-                    void parseAndRun(e.text, useGrok);
+                    void parseAndRun(e.text);
                   }}
                 >
                   {e.label}
                 </button>
               ))}
             </div>
+            <TemplateBuilder onInsert={(t) => setText(t)} />
+            {preview && <LivePreview outcome={preview} />}
             <p className="mt-3 text-[11px] leading-relaxed text-ink-500">
               Parsing only fills the editable card below — the verdict always comes
               from the deterministic engine, the same one that scored the 4,000
@@ -314,7 +342,22 @@ export default function LiveClient() {
             <div className="panel p-4">
               <div className="mb-3 flex items-center justify-between">
                 <span className="label">Scenario card — edit anything</span>
-                <span className="mono text-[9px] text-ink-600">every edit re-runs the engine</span>
+                <div className="flex items-center gap-2">
+                  {dirty && (
+                    <span className="mono text-[9px] text-rfi">edited — verdict is stale</span>
+                  )}
+                  <button
+                    onClick={() => void runScenario(scenario)}
+                    disabled={!!running}
+                    className={`mono rounded border px-2 py-0.5 text-[9px] tracking-[0.08em] transition-colors disabled:opacity-40 ${
+                      dirty
+                        ? "border-accent bg-accent/15 text-accent hover:bg-accent/25"
+                        : "border-line text-ink-400 hover:border-line-2"
+                    }`}
+                  >
+                    {running === "run" ? "RUNNING…" : "RE-RUN ENGINE →"}
+                  </button>
+                </div>
               </div>
 
               {/* institution */}

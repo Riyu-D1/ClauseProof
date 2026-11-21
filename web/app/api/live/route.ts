@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { parseWithGrok } from "@/lib/live-llm";
-import { normalizeScenario, parseScenarioLocal } from "@/lib/live-scenario";
+import { parseScenario, configuredLlmTag } from "@/lib/live-llm";
+import { normalizeScenario } from "@/lib/live-scenario";
 import { runLiveScenario } from "@/lib/live-run";
 
 export const dynamic = "force-dynamic";
@@ -12,14 +12,14 @@ const RUN_SCRIPT = join(resolve(process.cwd(), ".."), "system", "run");
 
 /**
  * POST /api/live
- *  { mode: "parse", text, parser? } → { scenario, parser, parse_ms, notes }
- *  { mode: "run",   scenario }      → { scenario, result }
- *  { mode: "go",    text, parser? } → parse + run in one round-trip
+ *  { mode: "parse", text, useLlm? }  → { scenario, parser, notes, parseMs, llmTag }
+ *  { mode: "run",   scenario }       → { scenario, result }
+ *  { mode: "go",    text, useLlm? }  → parse + run in one round-trip
+ * The verdict always comes from the deterministic engine (system/run);
+ * parsing only fills the editable scenario card.
  *
- * Parsing defaults to the instant local parser. parser:"grok" opts into the
- * LLM parser, which has a hard 6s timeout and silently falls back to local —
- * it can never block the run. The verdict always comes from the
- * deterministic engine (system/run); parsing only fills the editable card.
+ * Runs happen only when the client explicitly asks — this route never
+ * schedules, polls or chains calls.
  */
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
   }
   const b = (body ?? {}) as Record<string, unknown>;
   const mode = String(b.mode ?? "");
-  const wantsGrok = String(b.parser ?? "") === "grok";
+  const useLlm = b.useLlm !== false;
+  const llmTag = configuredLlmTag();
 
   if (!existsSync(RUN_SCRIPT)) {
     return NextResponse.json(
@@ -48,26 +49,22 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      let parsed;
-      let parse_ms: number | null;
-      if (wantsGrok) {
-        const g = await parseWithGrok(text);
-        parsed = g.outcome;
-        parse_ms = g.ms;
-      } else {
-        const t0 = Date.now();
-        parsed = parseScenarioLocal(text);
-        parse_ms = Date.now() - t0;
-      }
+      const parsed = await parseScenario(text, { useLlm });
+      const payload = {
+        scenario: parsed.scenario,
+        parser: parsed.parser,
+        notes: parsed.notes,
+        parseMs: parsed.ms ?? null,
+        llmTag,
+      };
       if (mode === "parse") {
-        return NextResponse.json(
-          { ...parsed, parse_ms },
-          { headers: { "cache-control": "no-store" } }
-        );
+        return NextResponse.json(payload, {
+          headers: { "cache-control": "no-store" },
+        });
       }
       const result = await runLiveScenario(parsed.scenario);
       return NextResponse.json(
-        { ...parsed, parse_ms, result },
+        { ...payload, result },
         { headers: { "cache-control": "no-store" } }
       );
     }

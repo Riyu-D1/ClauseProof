@@ -56,11 +56,23 @@ Rules:
 - linkedPaymentId must always be null (we link by order).
 - Do NOT invent documents the text doesn't mention. "no documents/nothing on file" = empty docs array.`;
 
+const LLM_TIMEOUT_MS = 8_000;
+
+export type LlmTag = "grok" | "openai";
+
 interface LlmEndpoint {
   url: string;
   key: string;
   model: string;
-  tag: "grok" | "openai";
+  tag: LlmTag;
+}
+
+/** Which parser the "parse with LLM" toggle would use, or null when no key
+ * is configured. Safe to hand to the client — it's a label, not a secret. */
+export function configuredLlmTag(): LlmTag | null {
+  if (process.env.XAI_API_KEY?.trim()) return "grok";
+  if (process.env.OPENAI_API_KEY?.trim()) return "openai";
+  return null;
 }
 
 function pickEndpoint(): LlmEndpoint | null {
@@ -69,7 +81,9 @@ function pickEndpoint(): LlmEndpoint | null {
     return {
       url: "https://api.x.ai/v1/chat/completions",
       key: xai,
-      model: process.env.XAI_MODEL?.trim() || "grok-4-fast",
+      // a fast non-reasoning model by default — the reasoning aliases can
+      // blow the 8s budget. XAI_MODEL overrides (set in .env.local).
+      model: process.env.XAI_MODEL?.trim() || "grok-4-fast-non-reasoning",
       tag: "grok",
     };
   }
@@ -85,11 +99,44 @@ function pickEndpoint(): LlmEndpoint | null {
   return null;
 }
 
-const LLM_TIMEOUT_MS = 6_000; // Grok never blocks the run — local fallback after this
+interface LlmCall {
+  scenario: LiveScenario | null;
+  ms: number;
+  /** short error class safe for logs and the UI — never contains the key */
+  fail: string | null;
+}
 
-async function callLlm(ep: LlmEndpoint, text: string): Promise<LiveScenario | null> {
+/** Pull a JSON object out of a chat completion: strips ```json fences,
+ * then falls back to the outermost { … } span. */
+function extractJson(content: string): unknown {
+  const unfenced = content
+    .trim()
+    .replace(/^```(?:json|JSON)?\s*/, "")
+    .replace(/\s*```\s*$/, "");
+  const span = content.slice(
+    content.indexOf("{"),
+    content.lastIndexOf("}") + 1
+  );
+  for (const cand of [unfenced, span]) {
+    if (!cand) continue;
+    try {
+      const v = JSON.parse(cand);
+      if (v && typeof v === "object") return v;
+    } catch {
+      // try the next candidate
+    }
+  }
+  return null;
+}
+
+/** One chat-completions call, classified. Any failure returns fail=reason —
+ * the key itself is never put into `fail` or the console. */
+async function callLlm(ep: LlmEndpoint, text: string): Promise<LlmCall> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
+  const t0 = Date.now();
+  let fail: string | null = null;
+  let scenario: LiveScenario | null = null;
   try {
     const res = await fetch(ep.url, {
       method: "POST",
@@ -101,6 +148,8 @@ async function callLlm(ep: LlmEndpoint, text: string): Promise<LiveScenario | nu
       body: JSON.stringify({
         model: ep.model,
         temperature: 0,
+        // xAI and OpenAI both accept OpenAI-style json_object on the chat
+        // endpoint; fences/loose text are still stripped client-side.
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SCHEMA_HELP },
@@ -108,64 +157,84 @@ async function callLlm(ep: LlmEndpoint, text: string): Promise<LiveScenario | nu
         ],
       }),
     });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") return null;
-    const parsed = JSON.parse(content);
-    return normalizeScenario({ ...parsed, sourceText: text });
-  } catch {
-    return null;
+    if (!res.ok) {
+      let detail = "";
+      try {
+        const errBody = (await res.json()) as {
+          error?: unknown;
+          message?: unknown;
+          code?: unknown;
+        };
+        const raw = errBody?.error ?? errBody?.message ?? errBody?.code;
+        const msg = typeof raw === "string" ? raw : JSON.stringify(raw ?? "");
+        // keep it short and drop anything that could carry the key
+        if (msg && !msg.includes(ep.key)) detail = `: ${msg.slice(0, 140)}`;
+      } catch {
+        // body wasn't JSON — status alone is the reason
+      }
+      fail = `HTTP ${res.status}${detail}`;
+    } else {
+      const data = (await res.json()) as {
+        choices?: { message?: { content?: unknown } }[];
+      };
+      const content = data?.choices?.[0]?.message?.content;
+      if (typeof content !== "string" || !content.trim()) {
+        fail = "empty response";
+      } else {
+        const parsed = extractJson(content);
+        if (parsed == null) {
+          fail = "unparseable JSON in response";
+        } else {
+          const sc = normalizeScenario({
+            ...(parsed as Record<string, unknown>),
+            sourceText: text,
+          });
+          if (!sc.payments.length) fail = "model returned no payments";
+          else scenario = sc;
+        }
+      }
+    }
+  } catch (e) {
+    fail =
+      e instanceof Error && e.name === "AbortError"
+        ? `timeout after ${LLM_TIMEOUT_MS / 1000}s`
+        : "network error";
   } finally {
     clearTimeout(timer);
   }
-}
-
-export interface GrokParseResult {
-  outcome: ParseOutcome;
-  /** wall time of the LLM attempt (ms), null when no endpoint is configured */
-  ms: number | null;
-  /** the endpoint tag actually used, or null when nothing was tried */
-  attempted: "grok" | "openai" | null;
-}
-
-/** Opt-in LLM parse: tries the configured endpoint with a hard 6s timeout,
- * then falls back to the deterministic local parser — it can never block
- * the engine run. */
-export async function parseWithGrok(text: string): Promise<GrokParseResult> {
-  const ep = pickEndpoint();
-  if (!ep) {
-    const local = parseScenarioLocal(text);
-    local.notes.unshift("No LLM key configured — used the instant local parser.");
-    return { outcome: local, ms: null, attempted: null };
-  }
-  const t0 = Date.now();
-  const scenario = await callLlm(ep, text);
   const ms = Date.now() - t0;
-  if (scenario && scenario.payments.length) {
-    return { outcome: { scenario, parser: ep.tag, notes: [] }, ms, attempted: ep.tag };
+  if (fail) {
+    console.warn(
+      `[live] ${ep.tag} parse failed: ${fail} (model ${ep.model}, ${ms}ms)`
+    );
   }
-  const local = parseScenarioLocal(text);
-  local.notes.unshift(
-    ms >= LLM_TIMEOUT_MS - 100
-      ? `Grok didn't answer within ${LLM_TIMEOUT_MS / 1000}s — used the instant local parser.`
-      : "Grok couldn't structure that — used the instant local parser."
-  );
-  return { outcome: local, ms, attempted: ep.tag };
+  return { scenario, ms, fail };
 }
 
-/** Parse free text into a scenario: LLM when a key is configured,
- * deterministic local parser otherwise (and on any LLM failure). */
-export async function parseScenario(text: string): Promise<ParseOutcome> {
-  const ep = pickEndpoint();
-  if (ep) {
-    const scenario = await callLlm(ep, text);
-    if (scenario && scenario.payments.length) {
-      return { scenario, parser: ep.tag, notes: [] };
-    }
+/** Parse free text into a scenario. With `useLlm` on (default) and a key
+ * configured, the LLM fills the card; on any failure — reported in `notes`
+ * — the deterministic local parser takes over. */
+export async function parseScenario(
+  text: string,
+  opts?: { useLlm?: boolean }
+): Promise<ParseOutcome> {
+  const ep = opts?.useLlm === false ? null : pickEndpoint();
+  if (!ep) {
+    const t0 = Date.now();
     const local = parseScenarioLocal(text);
-    local.notes.unshift("LLM parse unavailable — fell back to the local parser.");
+    local.ms = Date.now() - t0;
     return local;
   }
-  return parseScenarioLocal(text);
+  const call = await callLlm(ep, text);
+  if (call.scenario) {
+    return { scenario: call.scenario, parser: ep.tag, notes: [], ms: call.ms };
+  }
+  const local = parseScenarioLocal(text);
+  local.ms = call.ms;
+  local.notes.unshift(
+    `${ep.tag === "grok" ? "Grok" : "OpenAI"} parse failed (${
+      call.fail ?? "unknown"
+    }) — used the local parser.`
+  );
+  return local;
 }

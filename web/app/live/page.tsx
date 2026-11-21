@@ -1,5 +1,6 @@
 import LiveClient from "@/components/LiveClient";
 import PageCaption from "@/components/PageCaption";
+import { configuredLlmTag } from "@/lib/live-llm";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,8 @@ export default function LivePage() {
         editable scenario card, the monitoring rules fire honestly, and the real
         deterministic engine decides. Nothing is preset.
       </PageCaption>
-      <LiveClient />
+      {/* which parser the toggle offers — never the key itself */}
+      <LiveClient llmTag={configuredLlmTag()} />
     </main>
   );
 }
