@@ -5,19 +5,39 @@
  "institutions": [
   {
    "id": "bank",
-   "cases": 1000
+   "cases": 1000,
+   "verdicts": {
+    "CLOSE": 472,
+    "RFI": 178,
+    "ESCALATE": 350
+   }
   },
   {
    "id": "emoney",
-   "cases": 1000
+   "cases": 1000,
+   "verdicts": {
+    "CLOSE": 500,
+    "RFI": 166,
+    "ESCALATE": 334
+   }
   },
   {
    "id": "investment",
-   "cases": 1000
+   "cases": 1000,
+   "verdicts": {
+    "CLOSE": 606,
+    "RFI": 109,
+    "ESCALATE": 285
+   }
   },
   {
    "id": "payments_fx",
-   "cases": 1000
+   "cases": 1000,
+   "verdicts": {
+    "CLOSE": 475,
+    "RFI": 263,
+    "ESCALATE": 262
+   }
   }
  ],
  "repro": false,

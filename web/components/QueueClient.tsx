@@ -11,7 +11,6 @@ import {
   INSTITUTION_LABEL,
   type Demo,
   type Manifest,
-  type Repro,
   type Trace,
   type Verdict,
 } from "@/lib/types";
@@ -21,20 +20,21 @@ const DEMO_TAB = "demo";
 const PAGE_SIZE = 60;
 
 function ProofBar({
-  traces,
-  repro,
+  manifest,
   institution,
 }: {
-  traces: Trace[];
-  repro: Repro | null;
+  manifest: Manifest;
   institution: string;
 }) {
-  const counts = useMemo(() => {
+  const { counts, total } = useMemo(() => {
     const m: Record<Verdict, number> = { CLOSE: 0, RFI: 0, ESCALATE: 0 };
-    traces.forEach((t) => m[t.verdict]++);
-    return m;
-  }, [traces]);
-  const total = traces.length;
+    let n = 0;
+    for (const inst of manifest.institutions) {
+      n += inst.cases;
+      for (const v of VERDICTS) m[v] += inst.verdicts?.[v] ?? 0;
+    }
+    return { counts: m, total: n };
+  }, [manifest]);
   const stats = [
     { label: "CASES TRIAGED", value: String(total), color: "#37e0d8" },
     { label: "CLOSED", value: `${pct(counts.CLOSE, total)}%`, color: "#2bd47d" },
@@ -51,21 +51,6 @@ function ProofBar({
           </span>
         </div>
       ))}
-      {repro && (
-        <div className="flex flex-1 flex-col justify-center gap-0.5 px-5 py-3">
-          <span className="mono text-[10px] tracking-[0.16em] text-ink-500">REPRODUCIBILITY</span>
-          <span className="flex items-center gap-2">
-            <span className="mono text-2xl font-semibold text-accent">
-              {repro.identical_verdicts && repro.identical_reason_codes
-                ? `${repro.runs ?? 5}/${repro.runs ?? 5}`
-                : "—"}
-            </span>
-            <span className="mono text-[10px] text-ink-500">
-              identical runs{repro.fixture ? " · example" : ""}
-            </span>
-          </span>
-        </div>
-      )}
       <RunProof institution={institution} />
     </div>
   );
@@ -81,13 +66,9 @@ const SLOT_ICON: Record<string, string> = {
 
 export default function QueueClient({
   manifest,
-  traces,
-  repro,
   demo,
 }: {
   manifest: Manifest | null;
-  traces: Record<string, Trace[]>;
-  repro: Repro | null;
   demo: Demo | null;
 }) {
   const router = useRouter();
@@ -112,6 +93,27 @@ export default function QueueClient({
     if (tab !== DEMO_TAB && tab) lastInstRef.current = tab;
   }, [tab]);
 
+  // traces load lazily per institution tab — the initial payload stays light
+  // (manifest + demo.json only) so hydration and shortcuts are instant.
+  const [traces, setTraces] = useState<Record<string, Trace[]>>({});
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (tab === DEMO_TAB || !tab || traces[tab]) return;
+    let dead = false;
+    setLoading(true);
+    fetch(`/data/${tab}.json`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Trace[]) => {
+        if (dead) return;
+        setTraces((m) => ({ ...m, [tab]: data }));
+        setLoading(false);
+      })
+      .catch(() => !dead && setLoading(false));
+    return () => {
+      dead = true;
+    };
+  }, [tab, traces]);
+
   const rows = useMemo(() => {
     if (tab === DEMO_TAB) return [];
     const q = query.trim().toLowerCase();
@@ -127,14 +129,7 @@ export default function QueueClient({
   }, [traces, tab, query]);
 
   const shown = rows.slice(0, PAGE_SIZE);
-  const demoTraces = useMemo(() => {
-    if (!hasDemo) return [];
-    const byId = new Map<string, Trace>();
-    Object.values(traces).flat().forEach((t) => byId.set(t.case_id, t));
-    return demo!.picks
-      .map((p) => ({ pick: p, trace: byId.get(p.case_id) }))
-      .filter((x): x is { pick: Demo["picks"][number]; trace: Trace } => !!x.trace);
-  }, [demo, hasDemo, traces]);
+  const picks = useMemo(() => demo?.picks ?? [], [demo]);
 
   useEffect(() => setCursor(0), [tab, query]);
 
@@ -153,14 +148,14 @@ export default function QueueClient({
         if (e.key === "Escape") setHelp(false);
         return;
       }
-      if (e.key === "j") setCursor((c) => Math.min(c + 1, (tab === DEMO_TAB ? demoTraces.length : shown.length) - 1));
+      if (e.key === "j") setCursor((c) => Math.min(c + 1, (tab === DEMO_TAB ? picks.length : shown.length) - 1));
       else if (e.key === "k") setCursor((c) => Math.max(c - 1, 0));
       else if (e.key === "/") {
         e.preventDefault();
         searchRef.current?.focus();
       } else if (e.key === "Enter") {
         const id =
-          tab === DEMO_TAB ? demoTraces[cursor]?.pick.case_id : shown[cursor]?.case_id;
+          tab === DEMO_TAB ? picks[cursor]?.case_id : shown[cursor]?.case_id;
         if (id) router.push(`/case/${id}`);
       } else if (/^[1-9]$/.test(e.key) && tabIds[+e.key - 1]) {
         setTab(tabIds[+e.key - 1]);
@@ -168,15 +163,13 @@ export default function QueueClient({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, demoTraces, cursor, router, tabIds, tab, help]);
+  }, [shown, picks, cursor, router, tabIds, tab, help]);
 
   useEffect(() => {
     listRef.current
       ?.querySelector(`[data-idx="${cursor}"]`)
       ?.scrollIntoView({ block: "nearest" });
   }, [cursor]);
-
-  const allTraces = Object.values(traces).flat();
 
   if (!manifest || manifest.total_cases === 0) {
     return (
@@ -195,11 +188,7 @@ export default function QueueClient({
 
   return (
     <div className="flex flex-1 flex-col gap-5 p-5">
-      <ProofBar
-        traces={allTraces}
-        repro={manifest.repro ? repro : null}
-        institution={instForProof}
-      />
+      <ProofBar manifest={manifest} institution={instForProof} />
 
       {/* tabs: Demo first, then institutions */}
       <div className="flex items-center gap-2">
@@ -239,9 +228,7 @@ export default function QueueClient({
         )}
         {institutions.map((inst, i) => {
           const active = inst.id === tab;
-          const instTraces = traces[inst.id] ?? [];
-          const counts = { CLOSE: 0, RFI: 0, ESCALATE: 0 } as Record<Verdict, number>;
-          instTraces.forEach((t) => counts[t.verdict]++);
+          const counts = inst.verdicts ?? ({} as Record<Verdict, number>);
           return (
             <button
               key={inst.id}
@@ -315,7 +302,7 @@ export default function QueueClient({
       {/* demo picks */}
       {tab === DEMO_TAB ? (
         <div className="grid flex-1 grid-cols-1 gap-3 pb-8 md:grid-cols-2 xl:grid-cols-3">
-          {demoTraces.map(({ pick, trace }, i) => {
+          {picks.map((pick, i) => {
             const selected = i === cursor;
             return (
               <motion.button
@@ -344,7 +331,7 @@ export default function QueueClient({
                       {pick.case_id}
                     </div>
                     <div className="truncate text-[11px] text-ink-500">
-                      {trace.customer.name} · {INSTITUTION_LABEL[pick.institution] ?? pick.institution}
+                      {pick.customer_name} · {INSTITUTION_LABEL[pick.institution] ?? pick.institution}
                     </div>
                   </div>
                   <div className="mono shrink-0 text-right text-[10px] leading-relaxed text-ink-500">
@@ -429,7 +416,18 @@ export default function QueueClient({
               );
             })}
           </AnimatePresence>
-          {rows.length === 0 && (
+          {rows.length === 0 && loading && (
+            <div className="flex flex-col gap-2">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="panel h-[62px] animate-pulse"
+                  style={{ animationDelay: `${i * 0.08}s` }}
+                />
+              ))}
+            </div>
+          )}
+          {rows.length === 0 && !loading && (
             <div className="panel p-10 text-center">
               <p className="mono text-[11px] tracking-[0.2em] text-ink-500">EMPTY</p>
               <p className="mt-2 text-sm text-ink-300">No cases match “{query}”.</p>

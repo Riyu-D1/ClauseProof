@@ -154,6 +154,7 @@ for (const slot of SLOTS) {
     case_id: pick.case_id,
     verdict: pick.verdict,
     reason_code: pick.reason_code,
+    customer_name: pick.customer?.name ?? "",
     flagged_gbp: Math.round(totalFlagged(pick) * 100) / 100,
     txns: pick.coverage.length,
     counterparties: distinctCp(pick),

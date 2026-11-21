@@ -73,7 +73,7 @@ export interface Manifest {
   generated_at: string;
   fixture: boolean;
   trace_source?: string;
-  institutions: { id: string; cases: number }[];
+  institutions: { id: string; cases: number; verdicts?: Record<Verdict, number> }[];
   repro: boolean;
   total_cases: number;
 }
@@ -86,6 +86,7 @@ export interface DemoPick {
   case_id: string;
   verdict: Verdict;
   reason_code: string;
+  customer_name?: string;
   flagged_gbp: number;
   txns: number;
   counterparties: number;

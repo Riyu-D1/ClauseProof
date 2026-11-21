@@ -344,7 +344,7 @@ function riskContext(txns, customer, alerts) {
 }
 
 function buildTrace(inst, pick) {
-  const { c, alerts, txns, customer, docCache, cov, risky, onList } = pick;
+  const { c, alerts, txns, customer, cov, risky, onList } = pick;
   const coverage = txns.map((t, i) => {
     const doc = cov[i];
     return {
@@ -563,7 +563,9 @@ if (traceSource) {
 const institutions = [];
 for (const [inst, traces] of Object.entries(data)) {
   writeFileSync(join(OUT_DIR, `${inst}.json`), JSON.stringify(traces));
-  institutions.push({ id: inst, cases: traces.length });
+  const verdicts = { CLOSE: 0, RFI: 0, ESCALATE: 0 };
+  for (const t of traces) verdicts[t.verdict] = (verdicts[t.verdict] ?? 0) + 1;
+  institutions.push({ id: inst, cases: traces.length, verdicts });
 }
 
 const reproSrc = join(ROOT, "output", "repro.json");
