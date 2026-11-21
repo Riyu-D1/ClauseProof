@@ -42,20 +42,22 @@ for (let i = 0; i < 40; i++) {
 await shot("run-progress.png");
 console.log("run-progress.png");
 
-// wait for the whole job to finish
-await page.waitForSelector("text=IDENTICAL", { timeout: 600000 });
+// wait for the whole job to finish — the verdict badge, not caption text
+await page.waitForSelector("text=IDENTICAL ✓", { timeout: 600000 });
 await page.waitForTimeout(1200);
 await shot("run-identical.png");
 console.log("run-identical.png");
 
-// scroll to the results table
-await page.locator("text=Every case — click a row").scrollIntoViewIfNeeded();
+// scroll the results table into view — first case row, not just its header
+const results = page.locator("section", { hasText: "Every case — click a row" });
+await results.locator("tbody tr").first().scrollIntoViewIfNeeded();
 await page.waitForTimeout(600);
 await shot("run-results.png");
 console.log("run-results.png");
 
 // open the first case row → the case board
-await page.locator("tbody tr").first().click();
+await results.locator("tbody tr").first().click();
+await page.waitForSelector("text=RESULTS", { timeout: 30000 });
 await page.waitForTimeout(2500);
 await shot("run-case.png");
 console.log("run-case.png");
