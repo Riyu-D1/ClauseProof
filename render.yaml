@@ -1,0 +1,17 @@
+# Render Blueprint — ClauseProof live demo (free web service, Docker).
+#
+# Deploy: Render dashboard → New → Blueprint → point at this repo.
+# Then set the two env vars below in the service's Environment tab
+# (values are in web/.env.local locally — publishable key, browser-safe).
+# Without them the app still runs: plays fall back to in-memory.
+services:
+  - type: web
+    name: clauseproof
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false

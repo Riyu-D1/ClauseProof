@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 const INST_ROOT = resolve(process.cwd(), "..", "institutions");
+const DEMO_INST_ROOT = resolve(process.cwd(), "..", "demo", "institutions");
 const VALID_INST = /^[a-z_]+$/;
 const VALID_DOC = /^[A-Za-z0-9-]+$/;
 
@@ -24,7 +25,11 @@ export function GET(req: NextRequest) {
   if (!VALID_INST.test(institution) || !VALID_DOC.test(doc)) {
     return NextResponse.json({ error: "bad params" }, { status: 400 });
   }
-  const dir = join(INST_ROOT, institution);
+  // private dataset locally; bundled synthetic demo subset when hosted
+  let dir = join(INST_ROOT, institution);
+  if (!existsSync(join(dir, "evidence.jsonl"))) {
+    dir = join(DEMO_INST_ROOT, institution);
+  }
   const idxPath = join(dir, "evidence.jsonl");
   if (!existsSync(idxPath)) {
     return NextResponse.json({ error: "no such institution" }, { status: 404 });
