@@ -34,6 +34,7 @@ WORKDIR /app
 COPY --from=build /app/web ./web
 COPY system ./system
 COPY demo ./demo
+RUN ln -s /app/demo/institutions /app/institutions
 COPY output/traces ./output/traces
 COPY output/repro.json ./output/repro.json
 
