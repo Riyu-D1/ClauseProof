@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Doto, Space_Grotesk, Space_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const jbmono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jbmono" });
+const grotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-grotesk" });
+const spacemono = Space_Mono({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  variable: "--font-spacemono",
+});
+const doto = Doto({ subsets: ["latin"], variable: "--font-doto-src" });
 
 export const metadata: Metadata = {
   title: "ClauseProof — Alert Triage Console",
@@ -15,10 +20,12 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jbmono.variable}`}>
+    <html
+      lang="en"
+      className={`${grotesk.variable} ${spacemono.variable} ${doto.variable}`}
+    >
       <body className="min-h-screen">
         <div className="backdrop" />
-        <div className="gridlines" />
         {children}
       </body>
     </html>

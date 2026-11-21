@@ -2,6 +2,7 @@
 
 import {
   Background,
+  BackgroundVariant,
   BaseEdge,
   Controls,
   Handle,
@@ -15,12 +16,11 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { memo, useMemo } from "react";
-import { flag, gbp, gbpShort, initials } from "@/lib/format";
+import { ccode, gbp, gbpShort, initials } from "@/lib/format";
 import type { CoverageRow, Trace } from "@/lib/types";
 
-const COVERED = "#2bd47d";
-const UNCOVERED = "#ff3b5c";
-const CYAN = "#37e0d8";
+const COVERED = "#38d07d";
+const UNCOVERED = "#ff5566";
 const DOC_ID = /^[A-Z]{2,5}-\d+$/;
 
 /* ------------------------------- nodes ---------------------------------- */
@@ -52,12 +52,11 @@ const handleStyle = { opacity: 0, width: 6, height: 6, pointerEvents: "none" as 
 
 const PartyNodeView = memo(({ data }: NodeProps<PartyNode>) => (
   <div
-    className="cp-node-in w-[190px] rounded-xl border px-3 py-2.5"
+    className="cp-node-in w-[190px] rounded-lg border px-3 py-2.5"
     style={{
       animationDelay: `${data.delay}ms`,
-      background: "linear-gradient(180deg,#141a24,#0d1118)",
-      borderColor: data.unexplained ? "#ff3b5c50" : "rgba(255,255,255,0.1)",
-      boxShadow: data.unexplained ? "0 0 22px #ff3b5c18" : "0 0 18px rgba(0,0,0,0.4)",
+      background: "var(--color-obsidian-850)",
+      borderColor: data.unexplained ? "#ff556655" : "var(--color-line-2)",
     }}
   >
     <Handle id="l-src" type="source" position={Position.Left} style={handleStyle} />
@@ -65,12 +64,12 @@ const PartyNodeView = memo(({ data }: NodeProps<PartyNode>) => (
     <Handle id="r-src" type="source" position={Position.Right} style={handleStyle} />
     <Handle id="r-tgt" type="target" position={Position.Right} style={handleStyle} />
     <div className="flex items-center gap-2">
-      <span className="text-[15px] leading-none">{flag(data.country)}</span>
+      <span className="ctag" title={data.country}>{ccode(data.country)}</span>
       <span className="truncate text-[12px] font-medium text-ink-100" title={data.name}>
         {data.name}
       </span>
     </div>
-    <div className="mono mt-1 flex items-center justify-between text-[10px] text-ink-500">
+    <div className="mono mt-1.5 flex items-center justify-between text-[9.5px] tracking-[0.06em] text-ink-500">
       <span>{gbpShort(data.total)}</span>
       <span>
         {data.count} txn{data.count > 1 ? "s" : ""}
@@ -83,12 +82,12 @@ PartyNodeView.displayName = "PartyNodeView";
 
 const CustomerNodeView = memo(({ data }: NodeProps<CustomerNode>) => (
   <div
-    className="cp-node-in w-[220px] rounded-2xl border px-4 py-3.5"
+    className="cp-node-in w-[220px] rounded-lg border px-4 py-3.5"
     style={{
       animationDelay: `${data.delay}ms`,
-      background: "linear-gradient(160deg,#182031,#0c1017)",
-      borderColor: "#37e0d845",
-      boxShadow: "0 0 40px #37e0d818, 0 0 18px rgba(0,0,0,0.5)",
+      background: "var(--color-obsidian-800)",
+      borderColor: "var(--color-line-2)",
+      boxShadow: "0 0 0 1px var(--color-line)",
     }}
   >
     <Handle id="l-src" type="source" position={Position.Left} style={handleStyle} />
@@ -98,20 +97,17 @@ const CustomerNodeView = memo(({ data }: NodeProps<CustomerNode>) => (
     <Handle id="t-src" type="source" position={Position.Top} style={handleStyle} />
     <Handle id="t-tgt" type="target" position={Position.Top} style={handleStyle} />
     <div className="flex items-center gap-2.5">
-      <span
-        className="mono flex h-9 w-9 items-center justify-center rounded-full text-[12px] font-bold"
-        style={{ background: "#37e0d818", color: CYAN, border: "1px solid #37e0d840" }}
-      >
+      <span className="mono flex h-9 w-9 items-center justify-center rounded-md border border-line-2 bg-obsidian-900 text-[12px] font-bold text-ink-100">
         {initials(data.name)}
       </span>
       <div className="min-w-0">
         <div className="truncate text-[13px] font-semibold text-ink-100">{data.name}</div>
-        <div className="mono text-[10px] uppercase tracking-widest text-ink-500">
+        <div className="mono mt-0.5 text-[9px] uppercase tracking-[0.18em] text-ink-500">
           {data.kind}
         </div>
       </div>
     </div>
-    <div className="mono mt-2.5 border-t border-white/[0.07] pt-2 text-[10px] text-ink-500">
+    <div className="mono mt-2.5 border-t border-line pt-2 text-[10px] tracking-[0.08em] text-ink-500">
       flagged <span className="text-ink-100">{gbp(data.flagged)}</span>
     </div>
   </div>
@@ -166,7 +162,7 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
         fill="none"
         stroke={d.color}
         strokeWidth={d.width + 7}
-        strokeOpacity={0.14}
+        strokeOpacity={0.13}
         pathLength={1}
         className={`edge-draw ${d.covered ? "" : "edge-uncovered"}`}
         style={{ animationDelay: `${drawDelay}ms`, transition: "stroke .4s ease" }}
@@ -198,7 +194,7 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
               <button
                 className="edge-chip pointer-events-auto"
                 style={{
-                  background: "#0d1118",
+                  background: "var(--color-obsidian-800)",
                   color: COVERED,
                   border: `1px solid ${COVERED}55`,
                   transition: "color .4s ease, border-color .4s ease",
@@ -215,7 +211,7 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
               <span
                 className="edge-chip"
                 style={{
-                  background: "#0d1118",
+                  background: "var(--color-obsidian-800)",
                   color: COVERED,
                   border: `1px solid ${COVERED}55`,
                   cursor: "default",
@@ -228,7 +224,11 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
           ) : (
             <span
               className="edge-chip"
-              style={{ background: "#17090d", color: UNCOVERED, border: `1px solid ${UNCOVERED}66` }}
+              style={{
+                background: "var(--color-obsidian-800)",
+                color: UNCOVERED,
+                border: `1px solid ${UNCOVERED}66`,
+              }}
               title={
                 d.simulated
                   ? `${r.transaction_id} · ${gbp(r.amount_gbp)} — removed in the flip scenario`
@@ -241,7 +241,11 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
           {d.held && (
             <span
               className="edge-chip"
-              style={{ background: "#170f05", color: "#ffb020", border: "1px solid #ffb02055" }}
+              style={{
+                background: "var(--color-obsidian-800)",
+                color: "#ffb224",
+                border: "1px solid #ffb22455",
+              }}
               title="Held payment — released only on CLOSE"
             >
               HELD
@@ -463,20 +467,21 @@ function GraphInner({
         zoomOnScroll
         panOnDrag
       >
-        <Background color="rgba(255,255,255,0.035)" gap={28} />
+        {/* dot-matrix field, on motif */}
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="rgba(255,255,255,0.06)" />
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
-      {/* legend */}
-      <div className="mono pointer-events-none absolute left-3 top-3 flex flex-col gap-1 rounded-lg border border-white/[0.07] bg-obsidian-900/80 px-3 py-2 text-[10px] backdrop-blur">
+      {/* legend — flat, mono caps */}
+      <div className="mono pointer-events-none absolute left-3 top-3 flex flex-col gap-1.5 rounded-lg border border-line bg-obsidian-900 px-3 py-2.5 text-[9.5px]">
         <span className="tracking-[0.18em] text-ink-500">
           MONEY FLOW · {trace.coverage.length} TXNS{flipped && trace.flip ? " · FLIPPED" : ""}
         </span>
         <span className="flex items-center gap-1.5 text-ink-300">
-          <span className="inline-block h-[3px] w-5 rounded" style={{ background: COVERED }} />
+          <span className="inline-block h-[3px] w-5" style={{ background: COVERED }} />
           covered — document attached ({covered})
         </span>
         <span className="flex items-center gap-1.5 text-ink-300">
-          <span className="inline-block h-[3px] w-5 rounded" style={{ background: UNCOVERED }} />
+          <span className="inline-block h-[3px] w-5" style={{ background: UNCOVERED }} />
           unexplained ({trace.coverage.length - covered})
         </span>
       </div>

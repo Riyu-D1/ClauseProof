@@ -98,24 +98,25 @@ export default function RunProof({ institution }: { institution: string }) {
 
   const first = runs[0]?.hash;
   return (
-    <div ref={wrapRef} className="relative flex flex-1 flex-col justify-center px-5 py-2">
-      <span className="mono text-[10px] tracking-[0.16em] text-ink-500">LIVE PROOF</span>
-      <div className="mt-0.5 flex items-center gap-2">
+    <div ref={wrapRef} className="relative flex flex-1 flex-col justify-center px-6 py-4">
+      <span className="label">Live proof</span>
+      <div className="mt-1.5 flex items-center gap-2.5">
+        {/* the one primary action on the screen — white pill, Nothing spec */}
         <button
           onClick={start}
           disabled={status === "running"}
-          className="mono rounded-lg border border-[#37e0d855] bg-[#37e0d812] px-3 py-1.5 text-[11px] font-semibold text-accent transition-colors hover:bg-[#37e0d820] disabled:cursor-wait disabled:opacity-60"
+          className="mono rounded-full bg-ink-100 px-4 py-1.5 text-[10.5px] font-bold tracking-[0.1em] text-obsidian-950 transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50"
           title={`Run system/run 5× on ${INSTITUTION_LABEL[institution] ?? institution} and SHA-256 each output`}
         >
-          {status === "running" ? `RUNNING ${runs.length}/5…` : "▶ RUN 5×"}
+          {status === "running" ? `RUNNING ${runs.length}/5` : "RUN 5×"}
         </button>
         {identical === true && (
-          <span className="mono rounded-md border border-[#2bd47d55] bg-[#2bd47d12] px-2 py-1 text-[10px] font-bold text-close">
+          <span className="mono rounded border border-[#38d07d55] bg-[#38d07d10] px-2 py-1 text-[9.5px] font-bold tracking-[0.1em] text-close">
             IDENTICAL 5/5
           </span>
         )}
         {identical === false && (
-          <span className="mono rounded-md border border-[#ff3b5c55] bg-[#ff3b5c12] px-2 py-1 text-[10px] font-bold text-escalate">
+          <span className="mono rounded border border-[#ff556655] bg-[#ff556610] px-2 py-1 text-[9.5px] font-bold tracking-[0.1em] text-escalate">
             OUTPUTS DIFFER
           </span>
         )}
@@ -124,20 +125,19 @@ export default function RunProof({ institution }: { institution: string }) {
       <AnimatePresence>
         {open && (status !== "idle" || runs.length > 0) && (
           <motion.div
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.18 }}
-            className="panel absolute right-2 top-full z-50 mt-2 w-[440px] max-w-[92vw] p-4 shadow-2xl shadow-black/60"
-            style={{ background: "rgba(10,13,18,0.97)" }}
+            className="absolute right-3 top-full z-50 mt-2 w-[440px] max-w-[92vw] rounded-lg border border-line-2 bg-obsidian-900 p-4"
           >
             <div className="mb-3 flex items-center justify-between">
-              <span className="mono text-[10px] tracking-[0.18em] text-ink-500">
-                REPRODUCIBILITY PROOF · {INSTITUTION_LABEL[institution] ?? institution} · 5 RUNS
+              <span className="label">
+                Reproducibility proof · {INSTITUTION_LABEL[institution] ?? institution} · 5 runs
               </span>
               <button
                 onClick={() => setOpen(false)}
-                className="mono rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-ink-400 hover:border-white/30"
+                className="mono rounded border border-line px-1.5 py-0.5 text-[10px] text-ink-400 transition-colors hover:border-line-2 hover:text-ink-100"
               >
                 ✕
               </button>
@@ -148,14 +148,14 @@ export default function RunProof({ institution }: { institution: string }) {
                 return (
                   <div
                     key={n}
-                    className="mono flex items-center gap-2.5 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-[11px]"
+                    className="mono flex items-center gap-2.5 rounded-md border border-line bg-obsidian-850 px-3 py-2 text-[11px]"
                   >
                     <span className="w-8 text-ink-500">#{n}</span>
                     {r ? (
                       <>
                         <motion.span
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
                           className="flex-1 text-ink-100"
                           title={r.hash}
                         >
@@ -165,14 +165,14 @@ export default function RunProof({ institution }: { institution: string }) {
                         {first && (
                           <span
                             className="font-bold"
-                            style={{ color: r.hash === first ? "#2bd47d" : "#ff3b5c" }}
+                            style={{ color: r.hash === first ? "#38d07d" : "#ff5566" }}
                           >
                             {r.hash === first ? "✓" : "✗"}
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="flex-1 text-ink-600">
+                      <span className="flex-1 text-ink-500">
                         {status === "running" && n === runs.length + 1 ? (
                           <span className="cp-dots">running</span>
                         ) : (
@@ -185,18 +185,18 @@ export default function RunProof({ institution }: { institution: string }) {
               })}
             </div>
             <div className="mt-3 flex items-center justify-between">
-              <span className="mono text-[10px] text-ink-500">
-                {status === "running" && "system/run × 5 → sha256 per output…"}
+              <span className="mono text-[9.5px] tracking-[0.06em] text-ink-500">
+                {status === "running" && "system/run × 5 → sha256 per output"}
                 {status === "done" &&
-                  `${(totalMs / 1000).toFixed(1)}s total · byte-identical outputs mean deterministic verdicts`}
+                  `${(totalMs / 1000).toFixed(1)}s total · byte-identical outputs = deterministic verdicts`}
                 {status === "error" && <span className="text-escalate">{error}</span>}
               </span>
               {status === "done" && (
                 <span
-                  className="mono rounded px-2 py-0.5 text-[10px] font-bold"
+                  className="mono rounded border px-2 py-0.5 text-[9.5px] font-bold tracking-[0.1em]"
                   style={{
-                    color: identical ? "#2bd47d" : "#ff3b5c",
-                    border: `1px solid ${identical ? "#2bd47d55" : "#ff3b5c55"}`,
+                    color: identical ? "#38d07d" : "#ff5566",
+                    borderColor: identical ? "#38d07d55" : "#ff556655",
                   }}
                 >
                   {identical ? "IDENTICAL 5/5" : "NOT IDENTICAL"}
