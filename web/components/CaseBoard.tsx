@@ -8,6 +8,7 @@ import DecisionPath from "@/components/DecisionPath";
 import EvidenceDrawer from "@/components/EvidenceDrawer";
 import FlipCard from "@/components/FlipCard";
 import FlowGraph from "@/components/FlowGraph";
+import ShortcutHelp from "@/components/ShortcutHelp";
 import OsintPanel from "@/components/OsintPanel";
 import VerdictPill from "@/components/VerdictPill";
 import { INSTITUTION_LABEL, type Trace, type Verdict } from "@/lib/types";
@@ -22,16 +23,29 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
   const router = useRouter();
   const [doc, setDoc] = useState<string | null>(null);
   const [runId, setRunId] = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [help, setHelp] = useState(false);
   const idx = useMemo(() => peers.findIndex((p) => p.case_id === trace.case_id), [peers, trace]);
   const prev = idx > 0 ? peers[idx - 1] : null;
   const next = idx >= 0 && idx < peers.length - 1 ? peers[idx + 1] : null;
 
   const onDoc = useCallback((id: string) => setDoc(id), []);
+  const toggleFlip = useCallback(() => setFlipped((f) => !f), []);
+
+  useEffect(() => setFlipped(false), [trace.case_id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.key === "?") {
+        setHelp((h) => !h);
+        return;
+      }
+      if (help) {
+        if (e.key === "Escape") setHelp(false);
+        return;
+      }
       if (e.key === "Escape") {
         if (doc) setDoc(null);
         else router.push("/");
@@ -39,11 +53,12 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
         if (e.key === "j" && next) router.push(`/case/${next.case_id}`);
         else if (e.key === "k" && prev) router.push(`/case/${prev.case_id}`);
         else if (e.key === "r") setRunId((n) => n + 1);
+        else if (e.key === "f" && trace.flip) toggleFlip();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doc, next, prev, router]);
+  }, [doc, next, prev, router, trace.flip, toggleFlip, help]);
 
   return (
     <div className="flex min-h-[calc(100vh-57px)] flex-col gap-3 p-4 xl:h-[calc(100vh-57px)] xl:overflow-hidden">
@@ -113,7 +128,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
           transition={{ duration: 0.45, delay: 0.08 }}
           className="panel relative min-h-[460px] overflow-hidden xl:min-h-0"
         >
-          <FlowGraph trace={trace} onDoc={onDoc} />
+          <FlowGraph trace={trace} onDoc={onDoc} flipped={flipped} />
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -125,9 +140,10 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
         </motion.div>
       </div>
 
-      <FlipCard trace={trace} />
+      <FlipCard trace={trace} flipped={flipped} onToggle={toggleFlip} />
 
       <EvidenceDrawer institution={trace.institution} docId={doc} onClose={() => setDoc(null)} />
+      <ShortcutHelp open={help} onClose={() => setHelp(false)} page="case" />
     </div>
   );
 }

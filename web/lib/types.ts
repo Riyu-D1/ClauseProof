@@ -72,9 +72,31 @@ export interface Trace {
 export interface Manifest {
   generated_at: string;
   fixture: boolean;
-  institutions: { id: string; cases: number }[];
+  trace_source?: string;
+  institutions: { id: string; cases: number; verdicts?: Record<Verdict, number> }[];
   repro: boolean;
   total_cases: number;
+}
+
+export interface DemoPick {
+  slot: "close_invoice" | "rfi" | "mule" | "held_fx" | "tm22";
+  label: string;
+  blurb: string;
+  institution: string;
+  case_id: string;
+  verdict: Verdict;
+  reason_code: string;
+  customer_name?: string;
+  flagged_gbp: number;
+  txns: number;
+  counterparties: number;
+  unexplained: number;
+  has_flip: boolean;
+}
+
+export interface Demo {
+  generated_at: string;
+  picks: DemoPick[];
 }
 
 export interface Repro {

@@ -21,6 +21,7 @@ import type { CoverageRow, Trace } from "@/lib/types";
 const COVERED = "#2bd47d";
 const UNCOVERED = "#ff3b5c";
 const CYAN = "#37e0d8";
+const DOC_ID = /^[A-Z]{2,5}-\d+$/;
 
 /* ------------------------------- nodes ---------------------------------- */
 
@@ -30,15 +31,19 @@ type PartyNodeData = {
   total: number;
   count: number;
   unexplained: number;
+  delay: number;
 };
 type PartyNode = Node<PartyNodeData, "party">;
-type CustomerNode = Node<{ name: string; kind: string; flagged: number }, "customer">;
+type CustomerNode = Node<{ name: string; kind: string; flagged: number; delay: number }, "customer">;
 type MoneyEdgeData = {
   row: CoverageRow;
   color: string;
   width: number;
   offset: number;
   held: boolean;
+  covered: boolean;
+  simulated: boolean;
+  idx: number;
   onDoc: (docId: string) => void;
 };
 type MoneyEdge = Edge<MoneyEdgeData, "money">;
@@ -47,8 +52,9 @@ const handleStyle = { opacity: 0, width: 6, height: 6, pointerEvents: "none" as 
 
 const PartyNodeView = memo(({ data }: NodeProps<PartyNode>) => (
   <div
-    className="w-[190px] rounded-xl border px-3 py-2.5"
+    className="cp-node-in w-[190px] rounded-xl border px-3 py-2.5"
     style={{
+      animationDelay: `${data.delay}ms`,
       background: "linear-gradient(180deg,#141a24,#0d1118)",
       borderColor: data.unexplained ? "#ff3b5c50" : "rgba(255,255,255,0.1)",
       boxShadow: data.unexplained ? "0 0 22px #ff3b5c18" : "0 0 18px rgba(0,0,0,0.4)",
@@ -77,8 +83,9 @@ PartyNodeView.displayName = "PartyNodeView";
 
 const CustomerNodeView = memo(({ data }: NodeProps<CustomerNode>) => (
   <div
-    className="w-[220px] rounded-2xl border px-4 py-3.5"
+    className="cp-node-in w-[220px] rounded-2xl border px-4 py-3.5"
     style={{
+      animationDelay: `${data.delay}ms`,
       background: "linear-gradient(160deg,#182031,#0c1017)",
       borderColor: "#37e0d845",
       boxShadow: "0 0 40px #37e0d818, 0 0 18px rgba(0,0,0,0.5)",
@@ -149,22 +156,31 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
     ? selfLoopPath(sourceX, sourceY - 8)
     : quadPath(sourceX, sourceY, targetX, targetY, d.offset);
   const r = d.row;
+  const drawDelay = d.idx * 60;
+  const docClickable = d.covered && !!r.covered_by && DOC_ID.test(r.covered_by);
   return (
     <>
-      {/* under-glow */}
+      {/* under-glow — sweeps in on mount, recolours with the flip state */}
       <path
         d={path}
         fill="none"
         stroke={d.color}
         strokeWidth={d.width + 7}
         strokeOpacity={0.14}
-        className={r.covered_by ? undefined : "edge-uncovered"}
+        pathLength={1}
+        className={`edge-draw ${d.covered ? "" : "edge-uncovered"}`}
+        style={{ animationDelay: `${drawDelay}ms`, transition: "stroke .4s ease" }}
       />
       <BaseEdge
         id={id}
         path={path}
-        className={`edge-flow ${r.covered_by ? "" : "edge-uncovered"}`}
-        style={{ stroke: d.color, strokeWidth: d.width }}
+        className={`edge-flow edge-fade ${d.covered ? "" : "edge-uncovered"}`}
+        style={{
+          stroke: d.color,
+          strokeWidth: d.width,
+          animationDelay: `${drawDelay + 200}ms, 0s`,
+          transition: "stroke .4s ease",
+        }}
       />
       <foreignObject
         x={labelX - 70}
@@ -173,24 +189,51 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
         height={26}
         className="pointer-events-none overflow-visible"
       >
-        <div className="flex h-full items-center justify-center gap-1">
-          {r.covered_by ? (
-            <button
-              className="edge-chip pointer-events-auto"
-              style={{ background: "#0d1118", color: COVERED, border: `1px solid ${COVERED}55` }}
-              title={`${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                d.onDoc(r.covered_by!);
-              }}
-            >
-              ✓ {r.covered_by}
-            </button>
+        <div
+          className="edge-chipwrap flex h-full items-center justify-center gap-1"
+          style={{ animationDelay: `${drawDelay + 320}ms` }}
+        >
+          {d.covered ? (
+            docClickable ? (
+              <button
+                className="edge-chip pointer-events-auto"
+                style={{
+                  background: "#0d1118",
+                  color: COVERED,
+                  border: `1px solid ${COVERED}55`,
+                  transition: "color .4s ease, border-color .4s ease",
+                }}
+                title={`${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  d.onDoc(r.covered_by!);
+                }}
+              >
+                ✓ {r.covered_by}
+              </button>
+            ) : (
+              <span
+                className="edge-chip"
+                style={{
+                  background: "#0d1118",
+                  color: COVERED,
+                  border: `1px solid ${COVERED}55`,
+                  cursor: "default",
+                }}
+                title={`${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`}
+              >
+                ✓ {d.simulated ? "explained" : r.covered_by}
+              </span>
+            )
           ) : (
             <span
               className="edge-chip"
               style={{ background: "#17090d", color: UNCOVERED, border: `1px solid ${UNCOVERED}66` }}
-              title={`${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`}
+              title={
+                d.simulated
+                  ? `${r.transaction_id} · ${gbp(r.amount_gbp)} — removed in the flip scenario`
+                  : `${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`
+              }
             >
               ? unexplained
             </span>
@@ -218,8 +261,24 @@ const edgeTypes = { money: MoneyEdgeView };
 const norm = (s: string | null | undefined) =>
   (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
-function buildGraph(trace: Trace, onDoc: (id: string) => void) {
+function buildGraph(trace: Trace, onDoc: (id: string) => void, flipped: boolean) {
   const rows = trace.coverage;
+
+  // which rows does the flip change touch? Doc ids named in flip.change lose
+  // their document; generic flips to CLOSE explain every open row.
+  const flipDocIds = new Set<string>(
+    trace.flip
+      ? trace.coverage
+          .map((c) => c.covered_by)
+          .filter((id): id is string => !!id && trace.flip!.change.includes(id))
+      : []
+  );
+  const effCovered = (r: CoverageRow) => {
+    if (!flipped || !trace.flip) return !!r.covered_by;
+    if (flipDocIds.size) return !!r.covered_by && !flipDocIds.has(r.covered_by);
+    return trace.flip.new_verdict === "CLOSE" ? true : !!r.covered_by;
+  };
+
   const flagged = rows.reduce((s, r) => s + r.amount_gbp, 0);
   const custNorm = norm(trace.customer.name);
 
@@ -256,7 +315,7 @@ function buildGraph(trace: Trace, onDoc: (id: string) => void) {
     p.count++;
     if (r.direction === "in") p.totalIn += r.amount_gbp;
     else p.totalOut += r.amount_gbp;
-    if (!r.covered_by) p.unexplained++;
+    if (!effCovered(r)) p.unexplained++;
     p.dir = p.totalIn >= p.totalOut ? "in" : "out";
   }
 
@@ -268,29 +327,40 @@ function buildGraph(trace: Trace, onDoc: (id: string) => void) {
       id: "customer",
       type: "customer",
       position: { x: 0, y: 0 },
-      data: { name: trace.customer.name, kind: trace.customer.kind, flagged },
+      data: { name: trace.customer.name, kind: trace.customer.kind, flagged, delay: 0 },
     },
   ];
-  const place = (list: Party[], x: number) => {
-    const spacing = Math.min(110, Math.max(72, 460 / Math.max(list.length, 1)));
-    const startY = -((list.length - 1) * spacing) / 2;
-    list.forEach((p, i) =>
+  // place parties left/right; more than 14 on one side wraps into a second
+  // column further out so the fan stays readable
+  const place = (list: Party[], x: number, base: number, dir: 1 | -1) => {
+    const nCols = list.length > 14 ? 2 : 1;
+    const perCol = Math.ceil(list.length / nCols);
+    const spacing = Math.min(110, Math.max(64, 420 / Math.max(perCol, 1)));
+    const colSpan = (perCol - 1) * spacing;
+    list.forEach((p, i) => {
+      const col = Math.floor(i / perCol);
+      const row = i % perCol;
+      const cy = nCols === 1 ? 0 : (col - 0.5) * (colSpan + 60);
       nodes.push({
         id: `p:${p.key}`,
         type: "party",
-        position: { x, y: startY + i * spacing },
+        position: {
+          x: x + col * 250 * dir,
+          y: cy + (row - (perCol - 1) / 2) * spacing,
+        },
         data: {
           name: p.name,
           country: p.country,
           total: p.totalIn + p.totalOut,
           count: p.count,
           unexplained: p.unexplained,
+          delay: base + i * 40,
         },
-      })
-    );
+      });
+    });
   };
-  place(ins, -420);
-  place(outs, 420);
+  place(ins, -420, 80, -1);
+  place(outs, 420, 80 + ins.length * 40, 1);
 
   const nodeKey = (r: CoverageRow) => {
     const rNorm = norm(r.counterparty);
@@ -309,7 +379,7 @@ function buildGraph(trace: Trace, onDoc: (id: string) => void) {
     pairCount.set(key, (pairCount.get(key) ?? 0) + 1);
   }
 
-  const edges: MoneyEdge[] = rows.map((r) => {
+  const edges: MoneyEdge[] = rows.map((r, i) => {
     const rNorm = norm(r.counterparty);
     const self = !!rNorm && rNorm === custNorm;
     const pKey = nodeKey(r);
@@ -321,7 +391,8 @@ function buildGraph(trace: Trace, onDoc: (id: string) => void) {
     const idx = pairIdx.get(pairKey) ?? 0;
     pairIdx.set(pairKey, idx + 1);
     const n = pairCount.get(pairKey) ?? 1;
-    const covered = !!r.covered_by;
+    const covered = effCovered(r);
+    const simulated = covered !== !!r.covered_by;
     // which side is the party on? choose handles accordingly
     const partyLeft = p ? p.dir === "in" : true;
     const sourceHandle = self
@@ -347,6 +418,9 @@ function buildGraph(trace: Trace, onDoc: (id: string) => void) {
         width: Math.min(8, Math.max(1.6, Math.sqrt(r.amount_gbp) / 26)),
         offset: (idx - (n - 1) / 2) * 34 + (inFlow ? -30 : 30),
         held: trace.customer.held_payment_id === r.transaction_id,
+        covered,
+        simulated,
+        idx: i,
         onDoc,
       },
     };
@@ -357,12 +431,24 @@ function buildGraph(trace: Trace, onDoc: (id: string) => void) {
 
 /* ------------------------------ component ------------------------------- */
 
-function GraphInner({ trace, onDoc }: { trace: Trace; onDoc: (id: string) => void }) {
-  const { nodes, edges } = useMemo(() => buildGraph(trace, onDoc), [trace, onDoc]);
-  const covered = trace.coverage.filter((r) => r.covered_by).length;
+function GraphInner({
+  trace,
+  onDoc,
+  flipped,
+}: {
+  trace: Trace;
+  onDoc: (id: string) => void;
+  flipped: boolean;
+}) {
+  const { nodes, edges } = useMemo(
+    () => buildGraph(trace, onDoc, flipped),
+    [trace, onDoc, flipped]
+  );
+  const covered = edges.filter((e) => e.data?.covered).length;
   return (
     <div className="relative h-full w-full">
       <ReactFlow
+        key={`${trace.case_id}`}
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -382,7 +468,9 @@ function GraphInner({ trace, onDoc }: { trace: Trace; onDoc: (id: string) => voi
       </ReactFlow>
       {/* legend */}
       <div className="mono pointer-events-none absolute left-3 top-3 flex flex-col gap-1 rounded-lg border border-white/[0.07] bg-obsidian-900/80 px-3 py-2 text-[10px] backdrop-blur">
-        <span className="tracking-[0.18em] text-ink-500">MONEY FLOW · {trace.coverage.length} TXNS</span>
+        <span className="tracking-[0.18em] text-ink-500">
+          MONEY FLOW · {trace.coverage.length} TXNS{flipped && trace.flip ? " · FLIPPED" : ""}
+        </span>
         <span className="flex items-center gap-1.5 text-ink-300">
           <span className="inline-block h-[3px] w-5 rounded" style={{ background: COVERED }} />
           covered — document attached ({covered})
@@ -396,7 +484,11 @@ function GraphInner({ trace, onDoc }: { trace: Trace; onDoc: (id: string) => voi
   );
 }
 
-export default function FlowGraph(props: { trace: Trace; onDoc: (id: string) => void }) {
+export default function FlowGraph(props: {
+  trace: Trace;
+  onDoc: (id: string) => void;
+  flipped: boolean;
+}) {
   return (
     <ReactFlowProvider>
       <GraphInner {...props} />
