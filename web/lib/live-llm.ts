@@ -85,9 +85,11 @@ function pickEndpoint(): LlmEndpoint | null {
   return null;
 }
 
+const LLM_TIMEOUT_MS = 6_000; // Grok never blocks the run — local fallback after this
+
 async function callLlm(ep: LlmEndpoint, text: string): Promise<LiveScenario | null> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 9000);
+  const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
   try {
     const res = await fetch(ep.url, {
       method: "POST",
@@ -117,6 +119,39 @@ async function callLlm(ep: LlmEndpoint, text: string): Promise<LiveScenario | nu
   } finally {
     clearTimeout(timer);
   }
+}
+
+export interface GrokParseResult {
+  outcome: ParseOutcome;
+  /** wall time of the LLM attempt (ms), null when no endpoint is configured */
+  ms: number | null;
+  /** the endpoint tag actually used, or null when nothing was tried */
+  attempted: "grok" | "openai" | null;
+}
+
+/** Opt-in LLM parse: tries the configured endpoint with a hard 6s timeout,
+ * then falls back to the deterministic local parser — it can never block
+ * the engine run. */
+export async function parseWithGrok(text: string): Promise<GrokParseResult> {
+  const ep = pickEndpoint();
+  if (!ep) {
+    const local = parseScenarioLocal(text);
+    local.notes.unshift("No LLM key configured — used the instant local parser.");
+    return { outcome: local, ms: null, attempted: null };
+  }
+  const t0 = Date.now();
+  const scenario = await callLlm(ep, text);
+  const ms = Date.now() - t0;
+  if (scenario && scenario.payments.length) {
+    return { outcome: { scenario, parser: ep.tag, notes: [] }, ms, attempted: ep.tag };
+  }
+  const local = parseScenarioLocal(text);
+  local.notes.unshift(
+    ms >= LLM_TIMEOUT_MS - 100
+      ? `Grok didn't answer within ${LLM_TIMEOUT_MS / 1000}s — used the instant local parser.`
+      : "Grok couldn't structure that — used the instant local parser."
+  );
+  return { outcome: local, ms, attempted: ep.tag };
 }
 
 /** Parse free text into a scenario: LLM when a key is configured,

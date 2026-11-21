@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { parseScenario } from "@/lib/live-llm";
-import { normalizeScenario } from "@/lib/live-scenario";
+import { parseWithGrok } from "@/lib/live-llm";
+import { normalizeScenario, parseScenarioLocal } from "@/lib/live-scenario";
 import { runLiveScenario } from "@/lib/live-run";
 
 export const dynamic = "force-dynamic";
@@ -12,11 +12,14 @@ const RUN_SCRIPT = join(resolve(process.cwd(), ".."), "system", "run");
 
 /**
  * POST /api/live
- *  { mode: "parse", text }      → { scenario, parser, notes }
- *  { mode: "run",   scenario }  → { scenario, result }
- *  { mode: "go",    text }      → parse + run in one round-trip
- * The verdict always comes from the deterministic engine (system/run);
- * parsing only fills the editable scenario card.
+ *  { mode: "parse", text, parser? } → { scenario, parser, parse_ms, notes }
+ *  { mode: "run",   scenario }      → { scenario, result }
+ *  { mode: "go",    text, parser? } → parse + run in one round-trip
+ *
+ * Parsing defaults to the instant local parser. parser:"grok" opts into the
+ * LLM parser, which has a hard 6s timeout and silently falls back to local —
+ * it can never block the run. The verdict always comes from the
+ * deterministic engine (system/run); parsing only fills the editable card.
  */
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -27,6 +30,7 @@ export async function POST(req: NextRequest) {
   }
   const b = (body ?? {}) as Record<string, unknown>;
   const mode = String(b.mode ?? "");
+  const wantsGrok = String(b.parser ?? "") === "grok";
 
   if (!existsSync(RUN_SCRIPT)) {
     return NextResponse.json(
@@ -44,15 +48,26 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
-      const parsed = await parseScenario(text);
+      let parsed;
+      let parse_ms: number | null;
+      if (wantsGrok) {
+        const g = await parseWithGrok(text);
+        parsed = g.outcome;
+        parse_ms = g.ms;
+      } else {
+        const t0 = Date.now();
+        parsed = parseScenarioLocal(text);
+        parse_ms = Date.now() - t0;
+      }
       if (mode === "parse") {
-        return NextResponse.json(parsed, {
-          headers: { "cache-control": "no-store" },
-        });
+        return NextResponse.json(
+          { ...parsed, parse_ms },
+          { headers: { "cache-control": "no-store" } }
+        );
       }
       const result = await runLiveScenario(parsed.scenario);
       return NextResponse.json(
-        { ...parsed, result },
+        { ...parsed, parse_ms, result },
         { headers: { "cache-control": "no-store" } }
       );
     }

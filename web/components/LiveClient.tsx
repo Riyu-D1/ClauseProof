@@ -77,6 +77,8 @@ export default function LiveClient() {
   const [result, setResult] = useState<LiveResult | null>(null);
   const [prevVerdict, setPrevVerdict] = useState<string | null>(null);
   const [running, setRunning] = useState<"parse" | "run" | null>(null);
+  const [useGrok, setUseGrok] = useState(false);
+  const [parseMs, setParseMs] = useState<number | null>(null);
   const [runMs, setRunMs] = useState<number | null>(null);
   const [runId, setRunId] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -128,7 +130,7 @@ export default function LiveClient() {
   }, []);
 
   const parseAndRun = useCallback(
-    async (input: string) => {
+    async (input: string, grok: boolean) => {
       setRunning("parse");
       setError(null);
       const t0 = performance.now();
@@ -136,12 +138,13 @@ export default function LiveClient() {
         const res = await fetch("/api/live", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ mode: "go", text: input }),
+          body: JSON.stringify({ mode: "go", text: input, parser: grok ? "grok" : "local" }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "failed");
         setScenario(data.scenario);
         setParser(data.parser as ParserTag);
+        setParseMs(typeof data.parse_ms === "number" ? data.parse_ms : null);
         setNotes(data.notes ?? []);
         setInstLocked(false);
         setResult((prev) => {
@@ -212,6 +215,7 @@ export default function LiveClient() {
           {parser && (
             <span className="rounded border border-line-2 bg-obsidian-800 px-2 py-1 tracking-[0.12em] text-ink-300">
               {PARSER_LABEL[parser].toUpperCase()}
+              {parseMs != null ? ` · ${parseMs >= 1000 ? `${(parseMs / 1000).toFixed(1)}s` : `${parseMs}ms`}` : ""}
             </span>
           )}
           <span className="rounded border border-accent/40 bg-obsidian-800 px-2 py-1 tracking-[0.12em] text-accent">
@@ -235,7 +239,7 @@ export default function LiveClient() {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (text.trim() && !running) void parseAndRun(text.trim());
+                  if (text.trim() && !running) void parseAndRun(text.trim(), useGrok);
                 }
               }}
               rows={4}
@@ -243,15 +247,39 @@ export default function LiveClient() {
               className={`${INPUT} mt-3 resize-none !text-[13px] leading-relaxed`}
             />
             <div className="mt-3 flex items-center justify-between gap-2">
-              <span className="mono text-[9.5px] text-ink-600">
-                Enter ↵ to run · Shift+Enter for a new line
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="mono text-[9.5px] text-ink-600">
+                  Enter ↵ to run · Shift+Enter for a new line
+                </span>
+                <button
+                  onClick={() => setUseGrok((g) => !g)}
+                  className={`mono flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold tracking-[0.1em] transition-colors ${
+                    useGrok
+                      ? "border-accent bg-accent/10 text-accent"
+                      : "border-line text-ink-500 hover:border-line-2 hover:text-ink-300"
+                  }`}
+                  title="Off: the instant local parser. On: Grok structures the text (6s cap, local fallback — it can never block the run). The engine still decides."
+                  aria-pressed={useGrok}
+                >
+                  <span
+                    className="inline-block h-[5px] w-[5px] rounded-full"
+                    style={{ background: useGrok ? "var(--color-accent)" : "var(--color-ink-600)" }}
+                  />
+                  PARSE WITH GROK {useGrok ? "ON" : "OFF"}
+                </button>
+              </div>
               <button
-                onClick={() => text.trim() && void parseAndRun(text.trim())}
+                onClick={() => text.trim() && void parseAndRun(text.trim(), useGrok)}
                 disabled={!text.trim() || !!running}
                 className="mono rounded-md border border-accent bg-accent px-4 py-1.5 text-[11px] font-bold tracking-[0.14em] text-obsidian-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-30"
               >
-                {running === "parse" ? "PARSING…" : running === "run" ? "RUNNING…" : "RUN THE ENGINE →"}
+                {running === "parse"
+                  ? useGrok
+                    ? "GROK PARSING…"
+                    : "PARSING…"
+                  : running === "run"
+                    ? "RUNNING…"
+                    : "RUN THE ENGINE →"}
               </button>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -262,7 +290,7 @@ export default function LiveClient() {
                   title={e.text}
                   onClick={() => {
                     setText(e.text);
-                    void parseAndRun(e.text);
+                    void parseAndRun(e.text, useGrok);
                   }}
                 >
                   {e.label}
