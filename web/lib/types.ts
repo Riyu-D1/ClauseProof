@@ -39,6 +39,15 @@ export interface CoverageRow {
   why: string;
 }
 
+// a slice of coverage rows shown as a list in the evidence drawer
+// (click a graph node or edge chip to open it)
+export interface TxListing {
+  title: string;
+  sub?: string;
+  rows: CoverageRow[];
+  heldId?: string | null;
+}
+
 export interface CheckStep {
   step: number;
   policy_clause: string;

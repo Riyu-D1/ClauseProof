@@ -17,67 +17,91 @@ import {
 import "@xyflow/react/dist/style.css";
 import { memo, useMemo } from "react";
 import { ccode, gbp, gbpShort, initials } from "@/lib/format";
-import type { CoverageRow, Trace } from "@/lib/types";
+import { buildGraphModel, type FlowEdge, type VisParty } from "@/lib/graph-layout";
+import type { CoverageRow, Trace, TxListing } from "@/lib/types";
 
 const COVERED = "#38d07d";
 const UNCOVERED = "#ff5566";
-const DOC_ID = /^[A-Z]{2,5}-\d+$/;
+const HELD = "#ffb224";
 
 /* ------------------------------- nodes ---------------------------------- */
 
-type PartyNodeData = {
-  name: string;
-  country: string;
-  total: number;
-  count: number;
-  unexplained: number;
-  delay: number;
-};
+type PartyNodeData = { v: VisParty; delay: number; onList?: (l: TxListing) => void };
 type PartyNode = Node<PartyNodeData, "party">;
 type CustomerNode = Node<{ name: string; kind: string; flagged: number; delay: number }, "customer">;
 type MoneyEdgeData = {
-  row: CoverageRow;
-  color: string;
-  width: number;
-  offset: number;
-  held: boolean;
-  covered: boolean;
-  simulated: boolean;
+  e: FlowEdge;
+  partyName: string;
   idx: number;
   onDoc: (docId: string) => void;
+  onList?: (l: TxListing) => void;
 };
 type MoneyEdge = Edge<MoneyEdgeData, "money">;
 
 const handleStyle = { opacity: 0, width: 6, height: 6, pointerEvents: "none" as const };
 
-const PartyNodeView = memo(({ data }: NodeProps<PartyNode>) => (
-  <div
-    className="cp-node-in w-[190px] rounded-lg border px-3 py-2.5"
-    style={{
-      animationDelay: `${data.delay}ms`,
-      background: "var(--color-obsidian-850)",
-      borderColor: data.unexplained ? "#ff556655" : "var(--color-line-2)",
-    }}
-  >
-    <Handle id="l-src" type="source" position={Position.Left} style={handleStyle} />
-    <Handle id="l-tgt" type="target" position={Position.Left} style={handleStyle} />
-    <Handle id="r-src" type="source" position={Position.Right} style={handleStyle} />
-    <Handle id="r-tgt" type="target" position={Position.Right} style={handleStyle} />
-    <div className="flex items-center gap-2">
-      <span className="ctag" title={data.country}>{ccode(data.country)}</span>
-      <span className="truncate text-[12px] font-medium text-ink-100" title={data.name}>
-        {data.name}
-      </span>
+const listingFor = (v: VisParty, rows?: CoverageRow[], sub?: string): TxListing => ({
+  title: v.name,
+  sub:
+    sub ??
+    `${v.dir === "in" ? "IN →" : "OUT →"} · ${
+      v.parties > 1 ? `${v.parties} parties · ` : ""
+    }${v.count} txns · ${gbp(v.total)}`,
+  rows: rows ?? v.rows,
+});
+
+const PartyNodeView = memo(({ data }: NodeProps<PartyNode>) => {
+  const { v, onList } = data;
+  const clickable = !!onList;
+  const group = v.kind === "group";
+  return (
+    <div
+      className={`cp-node-in group relative w-[190px] rounded-lg border px-3 py-2.5 ${
+        clickable ? "cursor-pointer" : ""
+      }`}
+      style={{
+        animationDelay: `${data.delay}ms`,
+        background: group ? "var(--color-obsidian-900)" : "var(--color-obsidian-850)",
+        borderColor: v.unexplained ? "#ff556655" : "var(--color-line-2)",
+        borderStyle: group ? "dashed" : "solid",
+      }}
+      onClick={clickable ? () => onList(listingFor(v)) : undefined}
+      title={clickable ? `${v.count} transactions — click to list` : undefined}
+    >
+      {clickable && (
+        <span className="pointer-events-none absolute inset-0 rounded-lg border border-accent opacity-0 transition-opacity group-hover:opacity-60" />
+      )}
+      <Handle id="l-src" type="source" position={Position.Left} style={handleStyle} />
+      <Handle id="l-tgt" type="target" position={Position.Left} style={handleStyle} />
+      <Handle id="r-src" type="source" position={Position.Right} style={handleStyle} />
+      <Handle id="r-tgt" type="target" position={Position.Right} style={handleStyle} />
+      <div className="flex items-center gap-2">
+        {group ? (
+          <span className="mono flex h-[18px] min-w-[18px] items-center justify-center rounded border border-line-2 bg-obsidian-800 px-1 text-[9.5px] font-bold text-ink-300">
+            +{v.parties}
+          </span>
+        ) : (
+          <span className="ctag" title={v.country}>{ccode(v.country)}</span>
+        )}
+        <span className="truncate text-[12px] font-medium text-ink-100" title={v.name}>
+          {group ? "others" : v.name}
+        </span>
+      </div>
+      <div className="mono mt-1.5 flex items-center justify-between text-[9.5px] tracking-[0.06em] text-ink-500">
+        <span>{gbpShort(v.total)}</span>
+        <span>
+          {v.count} txn{v.count > 1 ? "s" : ""}
+          {v.unexplained ? ` · ${v.unexplained}?` : ""}
+        </span>
+      </div>
+      {group && clickable && (
+        <div className="mono mt-1 text-[8.5px] tracking-[0.14em] text-accent/80">
+          LIST TXNS →
+        </div>
+      )}
     </div>
-    <div className="mono mt-1.5 flex items-center justify-between text-[9.5px] tracking-[0.06em] text-ink-500">
-      <span>{gbpShort(data.total)}</span>
-      <span>
-        {data.count} txn{data.count > 1 ? "s" : ""}
-        {data.unexplained ? ` · ${data.unexplained}?` : ""}
-      </span>
-    </div>
-  </div>
-));
+  );
+});
 PartyNodeView.displayName = "PartyNodeView";
 
 const CustomerNodeView = memo(({ data }: NodeProps<CustomerNode>) => (
@@ -133,10 +157,8 @@ function quadPath(
   return [`M ${sx},${sy} Q ${cx},${cy} ${tx},${ty}`, (sx + 2 * cx + tx) / 4, (sy + 2 * cy + ty) / 4];
 }
 
-function selfLoopPath(
-  sx: number, sy: number
-): [string, number, number] {
-  const r = 46;
+function selfLoopPath(sx: number, sy: number, i: number): [string, number, number] {
+  const r = 46 + i * 34;
   return [
     `M ${sx},${sy} C ${sx - r},${sy - r * 2.4} ${sx + r},${sy - r * 2.4} ${sx + 2},${sy - 2}`,
     sx,
@@ -144,44 +166,107 @@ function selfLoopPath(
   ];
 }
 
+const chipStyle = (covered: boolean) => ({
+  background: "var(--color-obsidian-800)",
+  color: covered ? COVERED : UNCOVERED,
+  border: `1px solid ${covered ? `${COVERED}55` : `${UNCOVERED}66`}`,
+});
+
 const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
   const { id, sourceX, sourceY, targetX, targetY, data } = props;
   const d = data!;
+  const e = d.e;
   const loop = props.source === props.target;
+  const loopIdx = loop ? (e.covered ? 0 : 1) : 0;
   const [path, labelX, labelY] = loop
-    ? selfLoopPath(sourceX, sourceY - 8)
-    : quadPath(sourceX, sourceY, targetX, targetY, d.offset);
-  const r = d.row;
+    ? selfLoopPath(sourceX, sourceY - 8, loopIdx)
+    : quadPath(sourceX, sourceY, targetX, targetY, e.offset);
   const drawDelay = d.idx * 60;
-  const docClickable = d.covered && !!r.covered_by && DOC_ID.test(r.covered_by);
+  const n = e.rows.length;
+  const openList = () =>
+    d.onList?.({
+      title: d.partyName,
+      sub: `${e.inFlow ? "in →" : "out →"} ${
+        e.covered ? "covered" : "unexplained"
+      } · ${n} txn${n > 1 ? "s" : ""} · ${gbp(e.total)}`,
+      rows: e.rows,
+    });
+
+  let chip: React.ReactNode;
+  if (e.covered && e.docId) {
+    chip = (
+      <button
+        className="edge-chip pointer-events-auto"
+        style={{ ...chipStyle(true), transition: "color .4s ease, border-color .4s ease" }}
+        title={`${n} txn${n > 1 ? "s" : ""} · ${gbp(e.total)} — open ${e.docId}`}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          d.onDoc(e.docId!);
+        }}
+      >
+        ✓ {e.docId}
+        {n > 1 ? ` ×${n}` : ""}
+      </button>
+    );
+  } else if (e.covered && n === 1 && !e.simulated) {
+    chip = (
+      <button
+        className={`edge-chip ${d.onList ? "pointer-events-auto" : ""}`}
+        style={{ ...chipStyle(true), cursor: d.onList ? "pointer" : "default" }}
+        title={`${e.rows[0].transaction_id} · ${gbp(e.total)} — ${e.rows[0].why}`}
+        onClick={d.onList ? openList : undefined}
+      >
+        ✓ {e.rows[0].covered_by}
+      </button>
+    );
+  } else {
+    chip = (
+      <button
+        className={`edge-chip ${d.onList ? "pointer-events-auto" : ""}`}
+        style={{ ...chipStyle(e.covered), cursor: d.onList ? "pointer" : "default" }}
+        title={
+          e.covered
+            ? `${n} txns · ${gbp(e.total)} — click to list`
+            : e.simulated
+              ? `${n} txn${n > 1 ? "s" : ""} · ${gbp(e.total)} — removed in the flip scenario`
+              : `${n} txn${n > 1 ? "s" : ""} · ${gbp(e.total)} — click to list`
+        }
+        onClick={d.onList ? openList : undefined}
+      >
+        {e.covered ? "✓" : "?"} {gbpShort(e.total)}
+        {n > 1 ? ` · ${n} txns` : e.covered ? "" : " unexplained"}
+      </button>
+    );
+  }
+
   return (
     <>
       {/* under-glow — sweeps in on mount, recolours with the flip state */}
       <path
         d={path}
         fill="none"
-        stroke={d.color}
-        strokeWidth={d.width + 7}
+        stroke={e.covered ? COVERED : UNCOVERED}
+        strokeWidth={e.width + 7}
         strokeOpacity={0.13}
         pathLength={1}
-        className={`edge-draw ${d.covered ? "" : "edge-uncovered"}`}
+        className={`edge-draw ${e.covered ? "" : "edge-uncovered"}`}
         style={{ animationDelay: `${drawDelay}ms`, transition: "stroke .4s ease" }}
       />
       <BaseEdge
         id={id}
         path={path}
-        className={`edge-flow edge-fade ${d.covered ? "" : "edge-uncovered"}`}
+        className={`edge-flow edge-fade ${e.covered ? "" : "edge-uncovered"}`}
         style={{
-          stroke: d.color,
-          strokeWidth: d.width,
+          stroke: e.covered ? COVERED : UNCOVERED,
+          strokeWidth: e.width,
           animationDelay: `${drawDelay + 200}ms, 0s`,
           transition: "stroke .4s ease",
         }}
       />
       <foreignObject
-        x={labelX - 70}
+        x={labelX - 75}
         y={labelY - 12}
-        width={140}
+        width={150}
         height={26}
         className="pointer-events-none overflow-visible"
       >
@@ -189,62 +274,14 @@ const MoneyEdgeView = memo((props: EdgeProps<MoneyEdge>) => {
           className="edge-chipwrap flex h-full items-center justify-center gap-1"
           style={{ animationDelay: `${drawDelay + 320}ms` }}
         >
-          {d.covered ? (
-            docClickable ? (
-              <button
-                className="edge-chip pointer-events-auto"
-                style={{
-                  background: "var(--color-obsidian-800)",
-                  color: COVERED,
-                  border: `1px solid ${COVERED}55`,
-                  transition: "color .4s ease, border-color .4s ease",
-                }}
-                title={`${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  d.onDoc(r.covered_by!);
-                }}
-              >
-                ✓ {r.covered_by}
-              </button>
-            ) : (
-              <span
-                className="edge-chip"
-                style={{
-                  background: "var(--color-obsidian-800)",
-                  color: COVERED,
-                  border: `1px solid ${COVERED}55`,
-                  cursor: "default",
-                }}
-                title={`${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`}
-              >
-                ✓ {d.simulated ? "explained" : r.covered_by}
-              </span>
-            )
-          ) : (
+          {chip}
+          {e.held && (
             <span
               className="edge-chip"
               style={{
                 background: "var(--color-obsidian-800)",
-                color: UNCOVERED,
-                border: `1px solid ${UNCOVERED}66`,
-              }}
-              title={
-                d.simulated
-                  ? `${r.transaction_id} · ${gbp(r.amount_gbp)} — removed in the flip scenario`
-                  : `${r.transaction_id} · ${gbp(r.amount_gbp)} — ${r.why}`
-              }
-            >
-              ? unexplained
-            </span>
-          )}
-          {d.held && (
-            <span
-              className="edge-chip"
-              style={{
-                background: "var(--color-obsidian-800)",
-                color: "#ffb224",
-                border: "1px solid #ffb22455",
+                color: HELD,
+                border: `1px solid ${HELD}55`,
               }}
               title="Held payment — released only on CLOSE"
             >
@@ -262,193 +299,81 @@ const edgeTypes = { money: MoneyEdgeView };
 
 /* ------------------------------ layout ---------------------------------- */
 
-const norm = (s: string | null | undefined) =>
-  (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
-
-function buildGraph(trace: Trace, onDoc: (id: string) => void, flipped: boolean) {
-  const rows = trace.coverage;
-
-  // which rows does the flip change touch? Doc ids named in flip.change lose
-  // their document; generic flips to CLOSE explain every open row.
-  const flipDocIds = new Set<string>(
-    trace.flip
-      ? trace.coverage
-          .map((c) => c.covered_by)
-          .filter((id): id is string => !!id && trace.flip!.change.includes(id))
-      : []
-  );
-  const effCovered = (r: CoverageRow) => {
-    if (!flipped || !trace.flip) return !!r.covered_by;
-    if (flipDocIds.size) return !!r.covered_by && !flipDocIds.has(r.covered_by);
-    return trace.flip.new_verdict === "CLOSE" ? true : !!r.covered_by;
-  };
-
-  const flagged = rows.reduce((s, r) => s + r.amount_gbp, 0);
-  const custNorm = norm(trace.customer.name);
-
-  // aggregate counterparties (excluding self-loops into customer node)
-  interface Party {
-    key: string;
-    name: string;
-    country: string;
-    dir: "in" | "out";
-    totalIn: number;
-    totalOut: number;
-    count: number;
-    unexplained: number;
-  }
-  const parties = new Map<string, Party>();
-  for (const r of rows) {
-    const rNorm = norm(r.counterparty);
-    if (rNorm && rNorm === custNorm) continue; // self-loop rows handled below
-    const key = rNorm || `anon:${r.transaction_id}`;
-    let p = parties.get(key);
-    if (!p) {
-      p = {
-        key,
-        name: r.counterparty || "Unknown party",
-        country: r.country,
-        dir: r.direction,
-        totalIn: 0,
-        totalOut: 0,
-        count: 0,
-        unexplained: 0,
-      };
-      parties.set(key, p);
-    }
-    p.count++;
-    if (r.direction === "in") p.totalIn += r.amount_gbp;
-    else p.totalOut += r.amount_gbp;
-    if (!effCovered(r)) p.unexplained++;
-    p.dir = p.totalIn >= p.totalOut ? "in" : "out";
-  }
-
-  const ins = [...parties.values()].filter((p) => p.dir === "in").sort((a, b) => b.totalIn - a.totalIn);
-  const outs = [...parties.values()].filter((p) => p.dir === "out").sort((a, b) => b.totalOut - a.totalOut);
-
-  const nodes: (PartyNode | CustomerNode)[] = [
-    {
-      id: "customer",
-      type: "customer",
-      position: { x: 0, y: 0 },
-      data: { name: trace.customer.name, kind: trace.customer.kind, flagged, delay: 0 },
-    },
-  ];
-  // place parties left/right; more than 14 on one side wraps into a second
-  // column further out so the fan stays readable
-  const place = (list: Party[], x: number, base: number, dir: 1 | -1) => {
-    const nCols = list.length > 14 ? 2 : 1;
-    const perCol = Math.ceil(list.length / nCols);
-    const spacing = Math.min(110, Math.max(64, 420 / Math.max(perCol, 1)));
-    const colSpan = (perCol - 1) * spacing;
-    list.forEach((p, i) => {
-      const col = Math.floor(i / perCol);
-      const row = i % perCol;
-      const cy = nCols === 1 ? 0 : (col - 0.5) * (colSpan + 60);
-      nodes.push({
-        id: `p:${p.key}`,
-        type: "party",
-        position: {
-          x: x + col * 250 * dir,
-          y: cy + (row - (perCol - 1) / 2) * spacing,
-        },
-        data: {
-          name: p.name,
-          country: p.country,
-          total: p.totalIn + p.totalOut,
-          count: p.count,
-          unexplained: p.unexplained,
-          delay: base + i * 40,
-        },
-      });
-    });
-  };
-  place(ins, -420, 80, -1);
-  place(outs, 420, 80 + ins.length * 40, 1);
-
-  const nodeKey = (r: CoverageRow) => {
-    const rNorm = norm(r.counterparty);
-    if (rNorm && rNorm === custNorm) return "customer";
-    return `p:${rNorm || `anon:${r.transaction_id}`}`;
-  };
-
-  // parallel-edge offsets per unordered node pair
-  const pairCount = new Map<string, number>();
-  const pairIdx = new Map<string, number>();
-  for (const r of rows) {
-    const p = nodeKey(r);
-    const a = r.direction === "in" ? p : "customer";
-    const b = r.direction === "in" ? "customer" : p;
-    const key = `${a}->${b}`;
-    pairCount.set(key, (pairCount.get(key) ?? 0) + 1);
-  }
-
-  const edges: MoneyEdge[] = rows.map((r, i) => {
-    const rNorm = norm(r.counterparty);
-    const self = !!rNorm && rNorm === custNorm;
-    const pKey = nodeKey(r);
-    const p = self ? null : parties.get(rNorm || `anon:${r.transaction_id}`)!;
-    const inFlow = r.direction === "in";
-    const source = inFlow ? pKey : "customer";
-    const target = inFlow ? "customer" : pKey;
-    const pairKey = `${source}->${target}`;
-    const idx = pairIdx.get(pairKey) ?? 0;
-    pairIdx.set(pairKey, idx + 1);
-    const n = pairCount.get(pairKey) ?? 1;
-    const covered = effCovered(r);
-    const simulated = covered !== !!r.covered_by;
-    // which side is the party on? choose handles accordingly
-    const partyLeft = p ? p.dir === "in" : true;
-    const sourceHandle = self
-      ? "t-src"
-      : inFlow
-        ? partyLeft ? "r-src" : "l-src"
-        : partyLeft ? "l-src" : "r-src";
-    const targetHandle = self
-      ? "t-tgt"
-      : inFlow
-        ? partyLeft ? "l-tgt" : "r-tgt"
-        : partyLeft ? "r-tgt" : "l-tgt";
-    return {
-      id: r.transaction_id,
-      type: "money",
-      source,
-      target,
-      sourceHandle,
-      targetHandle,
-      data: {
-        row: r,
-        color: covered ? COVERED : UNCOVERED,
-        width: Math.min(8, Math.max(1.6, Math.sqrt(r.amount_gbp) / 26)),
-        offset: (idx - (n - 1) / 2) * 34 + (inFlow ? -30 : 30),
-        held: trace.customer.held_payment_id === r.transaction_id,
-        covered,
-        simulated,
-        idx: i,
-        onDoc,
-      },
-    };
-  });
-
-  return { nodes, edges };
-}
-
-/* ------------------------------ component ------------------------------- */
+const NODE_W = 190;
+const CUST_W = 220;
+const DX = 390; // column centre distance from the customer
+const SP = 84; // vertical pitch inside a column
 
 function GraphInner({
   trace,
   onDoc,
   flipped,
+  onList,
 }: {
   trace: Trace;
   onDoc: (id: string) => void;
   flipped: boolean;
+  onList?: (l: TxListing) => void;
 }) {
-  const { nodes, edges } = useMemo(
-    () => buildGraph(trace, onDoc, flipped),
-    [trace, onDoc, flipped]
-  );
-  const covered = edges.filter((e) => e.data?.covered).length;
+  const model = useMemo(() => buildGraphModel(trace, flipped), [trace, flipped]);
+
+  const { nodes, edges } = useMemo(() => {
+    const nodes: (PartyNode | CustomerNode)[] = [
+      {
+        id: "customer",
+        type: "customer",
+        position: { x: -CUST_W / 2, y: -52 },
+        data: { name: trace.customer.name, kind: trace.customer.kind, flagged: model.flagged, delay: 0 },
+      },
+    ];
+    const place = (list: VisParty[], side: -1 | 1, base: number) => {
+      list.forEach((v, i) => {
+        nodes.push({
+          id: v.id,
+          type: "party",
+          position: {
+            x: side * DX - NODE_W / 2,
+            y: (i - (list.length - 1) / 2) * SP - 27,
+          },
+          data: { v, delay: base + i * 40, onList },
+        });
+      });
+    };
+    place(model.ins, -1, 80);
+    place(model.outs, 1, 80 + model.ins.length * 40);
+
+    const byId = new Map([...model.ins, ...model.outs].map((v) => [v.id, v]));
+    const edges: MoneyEdge[] = model.edges.map((e, i) => {
+      const v = byId.get(e.nodeId);
+      const side = v?.dir === "in" ? -1 : 1;
+      let source = "customer";
+      let target = "customer";
+      let sourceHandle = "t-src";
+      let targetHandle = "t-tgt";
+      if (!e.loop && v) {
+        if (e.inFlow) {
+          source = v.id;
+          sourceHandle = side < 0 ? "r-src" : "l-src";
+          targetHandle = side < 0 ? "l-tgt" : "r-tgt";
+        } else {
+          target = v.id;
+          sourceHandle = side < 0 ? "l-src" : "r-src";
+          targetHandle = side < 0 ? "r-tgt" : "l-tgt";
+        }
+      }
+      return {
+        id: e.id,
+        type: "money",
+        source,
+        target,
+        sourceHandle,
+        targetHandle,
+        data: { e, partyName: v?.name ?? trace.customer.name, idx: i, onDoc, onList },
+      };
+    });
+    return { nodes, edges };
+  }, [model, trace, onDoc, onList]);
+
   return (
     <div className="relative h-full w-full">
       <ReactFlow
@@ -458,7 +383,7 @@ function GraphInner({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        fitViewOptions={{ padding: 0.25, maxZoom: 1.05 }}
+        fitViewOptions={{ padding: 0.18, maxZoom: 1.1 }}
         minZoom={0.3}
         maxZoom={1.6}
         nodesDraggable={false}
@@ -471,19 +396,25 @@ function GraphInner({
         <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="rgba(255,255,255,0.06)" />
         <Controls showInteractive={false} position="bottom-right" />
       </ReactFlow>
-      {/* legend — flat, mono caps */}
+      {/* legend — flat, mono caps; £ totals reconcile to flagged */}
       <div className="mono pointer-events-none absolute left-3 top-3 flex flex-col gap-1.5 rounded-lg border border-line bg-obsidian-900 px-3 py-2.5 text-[9.5px]">
         <span className="tracking-[0.18em] text-ink-500">
-          MONEY FLOW · {trace.coverage.length} TXNS{flipped && trace.flip ? " · FLIPPED" : ""}
+          MONEY FLOW · {trace.coverage.length} TXNS · {model.parties} PARTIES
+          {flipped && trace.flip ? " · FLIPPED" : ""}
         </span>
         <span className="flex items-center gap-1.5 text-ink-300">
           <span className="inline-block h-[3px] w-5" style={{ background: COVERED }} />
-          covered — document attached ({covered})
+          covered {gbpShort(model.coveredTotal)} · {model.coveredRows} txns — document attached
         </span>
         <span className="flex items-center gap-1.5 text-ink-300">
           <span className="inline-block h-[3px] w-5" style={{ background: UNCOVERED }} />
-          unexplained ({trace.coverage.length - covered})
+          unexplained {gbpShort(model.uncovTotal)} · {model.uncovRows} txns
         </span>
+        {model.grouped > 0 && (
+          <span className="text-ink-500">
+            +{model.grouped} parties in “others” — click a node to list txns
+          </span>
+        )}
       </div>
     </div>
   );
@@ -493,6 +424,7 @@ export default function FlowGraph(props: {
   trace: Trace;
   onDoc: (id: string) => void;
   flipped: boolean;
+  onList?: (l: TxListing) => void;
 }) {
   return (
     <ReactFlowProvider>

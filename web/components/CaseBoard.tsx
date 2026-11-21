@@ -11,7 +11,7 @@ import FlowGraph from "@/components/FlowGraph";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import OsintPanel from "@/components/OsintPanel";
 import { VERDICT_COLOR } from "@/lib/format";
-import { INSTITUTION_LABEL, type Trace, type Verdict } from "@/lib/types";
+import { INSTITUTION_LABEL, type Trace, type TxListing, type Verdict } from "@/lib/types";
 
 interface Peer {
   case_id: string;
@@ -25,6 +25,7 @@ const BTN =
 export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[] }) {
   const router = useRouter();
   const [doc, setDoc] = useState<string | null>(null);
+  const [txList, setTxList] = useState<TxListing | null>(null);
   const [runId, setRunId] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [help, setHelp] = useState(false);
@@ -33,9 +34,22 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
   const next = idx >= 0 && idx < peers.length - 1 ? peers[idx + 1] : null;
 
   const onDoc = useCallback((id: string) => setDoc(id), []);
+  const onList = useCallback(
+    (l: TxListing) =>
+      setTxList({ ...l, heldId: trace.customer.held_payment_id }),
+    [trace.customer.held_payment_id]
+  );
+  // drawer is layered: doc sits on top of a transaction list
+  const closeTop = useCallback(() => {
+    if (doc) setDoc(null);
+    else setTxList(null);
+  }, [doc]);
   const toggleFlip = useCallback(() => setFlipped((f) => !f), []);
 
-  useEffect(() => setFlipped(false), [trace.case_id]);
+  useEffect(() => {
+    setFlipped(false);
+    setTxList(null);
+  }, [trace.case_id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -51,6 +65,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
       }
       if (e.key === "Escape") {
         if (doc) setDoc(null);
+        else if (txList) setTxList(null);
         else router.push("/");
       } else if (!doc) {
         if (e.key === "j" && next) router.push(`/case/${next.case_id}`);
@@ -61,7 +76,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doc, next, prev, router, trace.flip, toggleFlip, help]);
+  }, [doc, txList, next, prev, router, trace.flip, toggleFlip, help]);
 
   const vc = VERDICT_COLOR[trace.verdict];
 
@@ -135,7 +150,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
           transition={{ duration: 0.4, delay: 0.08 }}
           className="panel relative min-h-[460px] overflow-hidden xl:min-h-0"
         >
-          <FlowGraph trace={trace} onDoc={onDoc} flipped={flipped} />
+          <FlowGraph trace={trace} onDoc={onDoc} flipped={flipped} onList={onList} />
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: 8 }}
@@ -149,7 +164,13 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
 
       <FlipCard trace={trace} flipped={flipped} onToggle={toggleFlip} />
 
-      <EvidenceDrawer institution={trace.institution} docId={doc} onClose={() => setDoc(null)} />
+      <EvidenceDrawer
+        institution={trace.institution}
+        docId={doc}
+        txList={txList}
+        onDoc={onDoc}
+        onClose={closeTop}
+      />
       <ShortcutHelp open={help} onClose={() => setHelp(false)} />
     </div>
   );
