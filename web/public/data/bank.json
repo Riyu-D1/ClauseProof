@@ -1,0 +1,466 @@
+[
+ {
+  "case_id": "BK-CS551701",
+  "institution": "bank",
+  "customer": {
+   "id": "BK-C933925",
+   "name": "Logan Bramford",
+   "kind": "individual",
+   "occupation_or_activity": "Plumber",
+   "declared_monthly_gbp": 2900,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "58 Sandmere Place, Radby, BD15 3RR",
+   "onboarded_on": "2023-07-16",
+   "account_purpose": "Everyday banking",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Card",
+    "Bank transfer",
+    "Direct debit"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-07-09",
+    "to": "2026-08-07"
+   }
+  },
+  "verdict": "CLOSE",
+  "reason_code": "THIRD_PARTY_DOCUMENTED",
+  "reason": "Every alerted transaction is explained by documents on file. KYC-8170 (Customer due diligence summary); SAL-319 (Private vehicle sale receipt) reconcile to the £14,816.98 of flagged activity for Logan Bramford.",
+  "evidence": [
+   "KYC-8170",
+   "SAL-319",
+   "BK-T854976749",
+   "BK-T804870135"
+  ],
+  "alerts": [
+   {
+    "alert_id": "BK-AL7915162",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 7 August 2026, the account received £14,816.98, 5.1 times the declared monthly income of £2,900.00. The limit is 3 times.",
+    "transaction_ids": [
+     "BK-T854976749",
+     "BK-T804870135"
+    ]
+   },
+   {
+    "alert_id": "BK-AL6380226",
+    "rule_id": "TM05",
+    "rule_name": "Large or unexpected cash activity",
+    "message": "A cash deposit of £11,850.00 on 7 August 2026 at Kelwick High Street branch is at or above the £10,000.00 limit for individual customers.",
+    "transaction_ids": [
+     "BK-T804870135"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "BK-T854976749",
+    "amount_gbp": 2966.98,
+    "direction": "in",
+    "counterparty": "Calwell Heating Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-07-25T07:30:00Z",
+    "covered_by": "KYC-8170",
+    "why": "Customer due diligence summary (KYC-8170) supports this payment"
+   },
+   {
+    "transaction_id": "BK-T804870135",
+    "amount_gbp": 11850,
+    "direction": "in",
+    "counterparty": "Cash deposit",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-07T11:21:00Z",
+    "covered_by": "SAL-319",
+    "why": "Private vehicle sale receipt (SAL-319) supports this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 2 alerts (TM01, TM05) fired on 2 transactions totalling £14,816.98.",
+    "result": "PASS",
+    "evidence": [
+     "BK-AL7915162",
+     "BK-AL6380226"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£2,900.00/month declared): does the volume need a profile update?",
+    "result": "UNKNOWN",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "PASS",
+    "evidence": [
+     "KYC-8170",
+     "SAL-319"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If KYC-8170 were not on file, the flagged activity would have no documented explanation",
+   "new_verdict": "RFI"
+  },
+  "risk_context": [],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "6d41f0de0597"
+ },
+ {
+  "case_id": "BK-CS544890",
+  "institution": "bank",
+  "customer": {
+   "id": "BK-C682644",
+   "name": "Jules Hartridge",
+   "kind": "individual",
+   "occupation_or_activity": "Electrician",
+   "declared_monthly_gbp": 2900,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "49 Whitcote Avenue, Brackmore, GA6 2SA",
+   "onboarded_on": "2020-01-08",
+   "account_purpose": "Everyday banking",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Card",
+    "Bank transfer",
+    "Direct debit"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-07-14",
+    "to": "2026-08-12"
+   }
+  },
+  "verdict": "RFI",
+  "reason_code": "RFI_SOURCE_OF_FUNDS",
+  "reason": "Nothing on file explains £34.25 to Talkline Mobile, and nothing else suggests crime. Ask the customer for documents showing what the payment was for — for example an invoice or agreement naming Talkline Mobile.",
+  "evidence": [
+   "KYC-868",
+   "LOA-9959",
+   "INV-5304",
+   "BK-T876555117",
+   "BK-T693328125",
+   "BK-T170821595"
+  ],
+  "alerts": [
+   {
+    "alert_id": "BK-AL2211535",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 12 August 2026, the account received £17,942.26, 6.2 times the declared monthly income of £2,900.00. The limit is 3 times.",
+    "transaction_ids": [
+     "BK-T876555117",
+     "BK-T693328125"
+    ]
+   },
+   {
+    "alert_id": "BK-AL8873160",
+    "rule_id": "TM02",
+    "rule_name": "Rapid movement of funds",
+    "message": "In the 10 days to 12 August 2026, the account received £15,000.00 and paid out £16,684.25 within 48 hours of money arriving, 100% of what came in. The limit is 80%.",
+    "transaction_ids": [
+     "BK-T693328125",
+     "BK-T170821595",
+     "BK-T286137802"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "BK-T876555117",
+    "amount_gbp": 2942.26,
+    "direction": "in",
+    "counterparty": "Ashholt Electrical Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-07-25T07:30:00Z",
+    "covered_by": "KYC-868",
+    "why": "Customer due diligence summary (KYC-868) supports this payment"
+   },
+   {
+    "transaction_id": "BK-T693328125",
+    "amount_gbp": 15000,
+    "direction": "in",
+    "counterparty": "Millridge Finance Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-11T09:35:00Z",
+    "covered_by": "LOA-9959",
+    "why": "Personal loan agreement with Millridge Finance Ltd (LOA-9959) supports this payment"
+   },
+   {
+    "transaction_id": "BK-T170821595",
+    "amount_gbp": 34.25,
+    "direction": "out",
+    "counterparty": "Talkline Mobile",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-12T06:10:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "BK-T286137802",
+    "amount_gbp": 16650,
+    "direction": "out",
+    "counterparty": "Kingsley Motors Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-12T12:35:00Z",
+    "covered_by": "INV-5304",
+    "why": "Invoice INV 82055 from Kingsley Motors Ltd (INV-5304) supports this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 2 alerts (TM01, TM02) fired on 4 transactions totalling £34,626.51.",
+    "result": "PASS",
+    "evidence": [
+     "BK-AL2211535",
+     "BK-AL8873160"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£2,900.00/month declared): does the volume need a profile update?",
+    "result": "UNKNOWN",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "UNKNOWN",
+    "evidence": [
+     "KYC-868",
+     "LOA-9959",
+     "INV-5304"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If the customer provides a document naming Talkline Mobile for £34.25",
+   "new_verdict": "CLOSE"
+  },
+  "risk_context": [
+   "round amounts",
+   "rapid in-and-out"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "c65582640e22"
+ },
+ {
+  "case_id": "BK-CS506625",
+  "institution": "bank",
+  "customer": {
+   "id": "BK-C899216",
+   "name": "Peyton Everden",
+   "kind": "individual",
+   "occupation_or_activity": "Dental nurse",
+   "declared_monthly_gbp": 2650,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "108 Elmbrook Gardens, Wilby, XH2 5NY",
+   "onboarded_on": "2021-08-13",
+   "account_purpose": "Everyday banking",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Card",
+    "Bank transfer",
+    "Direct debit"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-09-17",
+    "to": "2026-10-16"
+   }
+  },
+  "verdict": "ESCALATE",
+  "reason_code": "ESC_HIGH_RISK_CORRIDOR",
+  "reason": "Unexplained funds from United Kingdom, a higher-risk corridor the customer did not declare. £7,615.38 to Emery Brammere has no credible explanation on file. Escalated to the MLRO.",
+  "evidence": [
+   "KYC-2136",
+   "BK-T534147118",
+   "BK-T611408809",
+   "BK-T892516204"
+  ],
+  "alerts": [
+   {
+    "alert_id": "BK-AL6398353",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 16 October 2026, the account received £22,111.24, 8.3 times the declared monthly income of £2,650.00. The limit is 3 times.",
+    "transaction_ids": [
+     "BK-T534147118",
+     "BK-T611408809",
+     "BK-T892516204",
+     "BK-T236856952"
+    ]
+   },
+   {
+    "alert_id": "BK-AL8670224",
+    "rule_id": "TM06",
+    "rule_name": "Unexpected higher-risk corridor",
+    "message": "In the 30 days to 16 October 2026, £16,479.52 moved to or from Lebanon, rated higher risk and not among the countries the customer declared. The limit is £5,000.00.",
+    "transaction_ids": [
+     "BK-T353930521",
+     "BK-T171363646",
+     "BK-T984621582",
+     "BK-T798723476"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "BK-T534147118",
+    "amount_gbp": 2723.58,
+    "direction": "in",
+    "counterparty": "Penley Dental Practice",
+    "country": "United Kingdom",
+    "booked_at": "2026-09-25T07:30:00Z",
+    "covered_by": "KYC-2136",
+    "why": "Customer due diligence summary (KYC-2136) supports this payment"
+   },
+   {
+    "transaction_id": "BK-T611408809",
+    "amount_gbp": 7615.38,
+    "direction": "in",
+    "counterparty": "Emery Brammere",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-10T10:43:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "BK-T892516204",
+    "amount_gbp": 5346.61,
+    "direction": "in",
+    "counterparty": "Kit Kingswick",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-11T10:18:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "BK-T236856952",
+    "amount_gbp": 6425.67,
+    "direction": "in",
+    "counterparty": "Riley Brackden",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-12T10:29:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "BK-T353930521",
+    "amount_gbp": 4119.88,
+    "direction": "out",
+    "counterparty": "Teddy Calwick",
+    "country": "Lebanon",
+    "booked_at": "2026-10-13T13:38:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "BK-T171363646",
+    "amount_gbp": 4119.88,
+    "direction": "out",
+    "counterparty": "Drew Corcote",
+    "country": "Lebanon",
+    "booked_at": "2026-10-14T14:25:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "BK-T984621582",
+    "amount_gbp": 4119.88,
+    "direction": "out",
+    "counterparty": "Oakley Cranfield",
+    "country": "Lebanon",
+    "booked_at": "2026-10-15T15:32:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "BK-T798723476",
+    "amount_gbp": 4119.88,
+    "direction": "out",
+    "counterparty": "Cameron Elmby",
+    "country": "Lebanon",
+    "booked_at": "2026-10-15T16:17:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 2 alerts (TM01, TM06) fired on 8 transactions totalling £38,590.76.",
+    "result": "PASS",
+    "evidence": [
+     "BK-AL6398353",
+     "BK-AL8670224"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£2,650.00/month declared): does the volume need a profile update?",
+    "result": "FAIL",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "FAIL",
+    "evidence": [
+     "KYC-2136"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there suspicion of crime? If so the case goes to the MLRO without asking the customer.",
+    "result": "FAIL",
+    "evidence": []
+   }
+  ],
+  "flip": null,
+  "risk_context": [
+   "higher-risk corridor",
+   "third-party payer"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "024f7560aa22"
+ }
+]

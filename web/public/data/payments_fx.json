@@ -1,0 +1,436 @@
+[
+ {
+  "case_id": "PX-CS534207",
+  "institution": "payments_fx",
+  "customer": {
+   "id": "PX-C895125",
+   "name": "Oakgate Apparel Ltd",
+   "kind": "business",
+   "occupation_or_activity": "Buys clothing stock from overseas manufacturers",
+   "declared_monthly_gbp": 138000,
+   "expected_countries": [
+    "United Kingdom",
+    "Turkey",
+    "India",
+    "Vietnam"
+   ],
+   "risk_rating": "Low",
+   "address": "45 Aldcote Way, Kelmore, UR12 7WX",
+   "onboarded_on": "2022-06-17",
+   "account_purpose": "Paying overseas suppliers",
+   "source_of_funds": "Business revenue",
+   "expected_channels": [
+    "Bank transfer from own account"
+   ],
+   "held_payment_id": "PX-T474340896",
+   "review_window": {
+    "from": "2026-08-14",
+    "to": "2026-09-12"
+   }
+  },
+  "verdict": "CLOSE",
+  "reason_code": "INVOICE_MATCHES",
+  "reason": "Every alerted transaction is explained by documents on file. INV-2706 (Invoices from Bromby General Trading SARL) reconcile to the £67,036.13 of flagged activity for Oakgate Apparel Ltd.",
+  "evidence": [
+   "INV-2706",
+   "PX-T479977946",
+   "PX-T244020466",
+   "PX-T474340896"
+  ],
+  "alerts": [
+   {
+    "alert_id": "PX-AL1324126",
+    "rule_id": "TM06",
+    "rule_name": "Unexpected higher-risk corridor",
+    "message": "In the 30 days to 12 September 2026, £67,036.13 moved to or from Lebanon, rated higher risk and not among the countries the customer declared. The limit is £5,000.00.",
+    "transaction_ids": [
+     "PX-T479977946",
+     "PX-T244020466",
+     "PX-T474340896"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "PX-T479977946",
+    "amount_gbp": 23476.84,
+    "direction": "out",
+    "counterparty": "Bromby General Trading SARL",
+    "country": "Lebanon",
+    "booked_at": "2026-09-06T11:03:00Z",
+    "covered_by": "INV-2706",
+    "why": "Invoices from Bromby General Trading SARL (INV-2706) supports this payment"
+   },
+   {
+    "transaction_id": "PX-T244020466",
+    "amount_gbp": 22219.4,
+    "direction": "out",
+    "counterparty": "Bromby General Trading SARL",
+    "country": "Lebanon",
+    "booked_at": "2026-09-09T11:06:00Z",
+    "covered_by": "INV-2706",
+    "why": "Invoices from Bromby General Trading SARL (INV-2706) supports this payment"
+   },
+   {
+    "transaction_id": "PX-T474340896",
+    "amount_gbp": 21339.89,
+    "direction": "out",
+    "counterparty": "Bromby General Trading SARL",
+    "country": "Lebanon",
+    "booked_at": "2026-09-12T11:45:00Z",
+    "covered_by": "INV-2706",
+    "why": "Invoices from Bromby General Trading SARL (INV-2706) supports this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 1 alert (TM06) fired on 3 transactions totalling £67,036.13.",
+    "result": "PASS",
+    "evidence": [
+     "PX-AL1324126"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£138,000.00/month declared): does the volume need a profile update?",
+    "result": "PASS",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "PASS",
+    "evidence": [
+     "INV-2706"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If INV-2706 were not on file, the flagged activity would have no documented explanation",
+   "new_verdict": "RFI"
+  },
+  "risk_context": [
+   "higher-risk corridor"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "604b4db99bde"
+ },
+ {
+  "case_id": "PX-CS613232",
+  "institution": "payments_fx",
+  "customer": {
+   "id": "PX-C627701",
+   "name": "Radfield Freight Ltd",
+   "kind": "business",
+   "occupation_or_activity": "Freight forwarding: collects shipping charges from UK exporters and pays carriers abroad",
+   "declared_monthly_gbp": 414583,
+   "expected_countries": [
+    "United Kingdom",
+    "Turkey",
+    "India",
+    "Vietnam"
+   ],
+   "risk_rating": "Low",
+   "address": "6 Aldridge Crescent, Whitdale, YJ14 4YU",
+   "onboarded_on": "2021-03-28",
+   "account_purpose": "Paying overseas suppliers",
+   "source_of_funds": "Business revenue",
+   "expected_channels": [
+    "Bank transfer from own account"
+   ],
+   "held_payment_id": "PX-T890688116",
+   "review_window": {
+    "from": "2026-09-08",
+    "to": "2026-10-07"
+   }
+  },
+  "verdict": "RFI",
+  "reason_code": "RFI_PURPOSE_DOCUMENTS",
+  "reason": "Nothing on file explains £49,251.58 to Fernholt Industries Co, and nothing else suggests crime. Ask the customer for documents showing what the payment was for — for example an invoice or agreement naming Fernholt Industries Co.",
+  "evidence": [
+   "INV-8694",
+   "INV-303",
+   "PX-T902035967",
+   "PX-T562393838",
+   "PX-T510518306"
+  ],
+  "alerts": [
+   {
+    "alert_id": "PX-AL1122018",
+    "rule_id": "TM02",
+    "rule_name": "Rapid movement of funds",
+    "message": "In the 10 days to 7 October 2026, the account received £31,307.08 from parties other than the client and paid out £126,992.60 within 48 hours of money arriving, 100% of what came in. The limit is 80%.",
+    "transaction_ids": [
+     "PX-T902035967",
+     "PX-T562393838",
+     "PX-T510518306",
+     "PX-T384551772",
+     "PX-T511611900",
+     "PX-T890688116"
+    ]
+   },
+   {
+    "alert_id": "PX-AL7561505",
+    "rule_id": "TM08",
+    "rule_name": "Third-party funding or payout",
+    "message": "Draybrook Exports Ltd paid £8,678.92 into the account on 5 October 2026; Hollholt Manufacturing Ltd paid £14,858.53 into the account on 5 October 2026; Lockfield Brands Ltd paid £7,769.63 into the account on 6 October 2026. The account holder name does not match the customer, Radfield Freight Ltd.",
+    "transaction_ids": [
+     "PX-T902035967",
+     "PX-T562393838",
+     "PX-T510518306"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "PX-T902035967",
+    "amount_gbp": 8678.92,
+    "direction": "in",
+    "counterparty": "Draybrook Exports Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-05T09:30:00Z",
+    "covered_by": "INV-8694",
+    "why": "Freight invoices issued by Radfield Freight Ltd (INV-8694) supports this payment"
+   },
+   {
+    "transaction_id": "PX-T562393838",
+    "amount_gbp": 14858.53,
+    "direction": "in",
+    "counterparty": "Hollholt Manufacturing Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-05T10:47:00Z",
+    "covered_by": "INV-8694",
+    "why": "Freight invoices issued by Radfield Freight Ltd (INV-8694) supports this payment"
+   },
+   {
+    "transaction_id": "PX-T510518306",
+    "amount_gbp": 7769.63,
+    "direction": "in",
+    "counterparty": "Lockfield Brands Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-06T11:53:00Z",
+    "covered_by": "INV-8694",
+    "why": "Freight invoices issued by Radfield Freight Ltd (INV-8694) supports this payment"
+   },
+   {
+    "transaction_id": "PX-T384551772",
+    "amount_gbp": 49251.58,
+    "direction": "out",
+    "counterparty": "Fernholt Industries Co",
+    "country": "India",
+    "booked_at": "2026-10-06T12:33:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "PX-T511611900",
+    "amount_gbp": 49251.58,
+    "direction": "out",
+    "counterparty": "Marby Industries Co",
+    "country": "Vietnam",
+    "booked_at": "2026-10-07T09:09:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "PX-T890688116",
+    "amount_gbp": 28489.44,
+    "direction": "out",
+    "counterparty": "Kingston Shipping BV",
+    "country": "Netherlands",
+    "booked_at": "2026-10-07T11:17:00Z",
+    "covered_by": "INV-303",
+    "why": "Invoice CARRIER 73143 from Kingston Shipping BV (INV-303) supports this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 2 alerts (TM02, TM08) fired on 6 transactions totalling £158,299.68.",
+    "result": "PASS",
+    "evidence": [
+     "PX-AL1122018",
+     "PX-AL7561505"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£414,583.00/month declared): does the volume need a profile update?",
+    "result": "PASS",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "UNKNOWN",
+    "evidence": [
+     "INV-8694",
+     "INV-303"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If the customer provides a document naming Fernholt Industries Co for £49,251.58",
+   "new_verdict": "CLOSE"
+  },
+  "risk_context": [
+   "rapid in-and-out"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "e1d303050b01"
+ },
+ {
+  "case_id": "PX-CS760604",
+  "institution": "payments_fx",
+  "customer": {
+   "id": "PX-C154954",
+   "name": "Sandridge Timber Supplies Ltd",
+   "kind": "business",
+   "occupation_or_activity": "Imports timber and building materials",
+   "declared_monthly_gbp": 501333,
+   "expected_countries": [
+    "United Kingdom",
+    "Canada",
+    "Poland",
+    "United States"
+   ],
+   "risk_rating": "Low",
+   "address": "59 Fernford Way, Hartwell, QF13 3NU",
+   "onboarded_on": "2022-11-15",
+   "account_purpose": "Paying overseas suppliers",
+   "source_of_funds": "Business revenue",
+   "expected_channels": [
+    "Bank transfer from own account"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-09-09",
+    "to": "2026-10-08"
+   }
+  },
+  "verdict": "ESCALATE",
+  "reason_code": "ESC_HIGH_RISK_CORRIDOR",
+  "reason": "Unexplained payments to Poland, a higher-risk corridor the customer did not declare. £61,567.89 to Stanby Trading Sp. z o.o. has no credible explanation on file. Escalated to the MLRO.",
+  "evidence": [
+   "CRN-7897",
+   "PX-T567863512",
+   "PX-T641684936"
+  ],
+  "alerts": [
+   {
+    "alert_id": "PX-AL9827562",
+    "rule_id": "TM02",
+    "rule_name": "Rapid movement of funds",
+    "message": "In the 10 days to 8 October 2026, the account received £8,468.96 from parties other than the client and paid out £61,567.89 within 48 hours of money arriving, 100% of what came in. The limit is 80%.",
+    "transaction_ids": [
+     "PX-T567863512",
+     "PX-T641684936"
+    ]
+   },
+   {
+    "alert_id": "PX-AL4053277",
+    "rule_id": "TM06",
+    "rule_name": "Unexpected higher-risk corridor",
+    "message": "In the 30 days to 8 October 2026, £8,468.96 moved to or from Lebanon, rated higher risk and not among the countries the customer declared. The limit is £5,000.00.",
+    "transaction_ids": [
+     "PX-T567863512"
+    ]
+   },
+   {
+    "alert_id": "PX-AL4547490",
+    "rule_id": "TM08",
+    "rule_name": "Third-party funding or payout",
+    "message": "Halcote Trading SAL paid £8,468.96 into the account on 7 October 2026. The account holder name does not match the customer, Sandridge Timber Supplies Ltd.",
+    "transaction_ids": [
+     "PX-T567863512"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "PX-T567863512",
+    "amount_gbp": 8468.96,
+    "direction": "in",
+    "counterparty": "Halcote Trading SAL",
+    "country": "Lebanon",
+    "booked_at": "2026-10-07T10:46:00Z",
+    "covered_by": "CRN-7897",
+    "why": "Credit note from Halcote Trading SAL (CRN-7897) supports this payment"
+   },
+   {
+    "transaction_id": "PX-T641684936",
+    "amount_gbp": 61567.89,
+    "direction": "out",
+    "counterparty": "Stanby Trading Sp. z o.o.",
+    "country": "Poland",
+    "booked_at": "2026-10-07T10:55:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 3 alerts (TM02, TM06, TM08) fired on 2 transactions totalling £70,036.85.",
+    "result": "PASS",
+    "evidence": [
+     "PX-AL9827562",
+     "PX-AL4053277",
+     "PX-AL4547490"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£501,333.00/month declared): does the volume need a profile update?",
+    "result": "PASS",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "FAIL",
+    "evidence": [
+     "CRN-7897"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there suspicion of crime? If so the case goes to the MLRO without asking the customer.",
+    "result": "FAIL",
+    "evidence": []
+   }
+  ],
+  "flip": null,
+  "risk_context": [
+   "higher-risk corridor",
+   "rapid in-and-out"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "118c10cc9e40"
+ }
+]

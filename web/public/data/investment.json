@@ -1,0 +1,462 @@
+[
+ {
+  "case_id": "IV-CS578500",
+  "institution": "investment",
+  "customer": {
+   "id": "IV-C996981",
+   "name": "Remy Ashford",
+   "kind": "individual",
+   "occupation_or_activity": "Architect",
+   "declared_monthly_gbp": 4900,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "29 Langley Road, Radbrook, QQ16 3UX",
+   "onboarded_on": "2020-08-05",
+   "account_purpose": "Long-term investing",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Bank transfer from own account"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-09-13",
+    "to": "2026-10-12"
+   }
+  },
+  "verdict": "CLOSE",
+  "reason_code": "THIRD_PARTY_DOCUMENTED",
+  "reason": "Every alerted transaction is explained by documents on file. KYC-5487 (Customer due diligence summary) reconcile to the £43,088.00 of flagged activity for Remy Ashford.",
+  "evidence": [
+   "KYC-5487",
+   "IV-T857943522",
+   "IV-T167313463",
+   "IV-T309888688"
+  ],
+  "alerts": [
+   {
+    "alert_id": "IV-AL3499443",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 12 October 2026, the account received £22,050.00, 4.5 times the declared monthly income of £4,900.00. The limit is 3 times.",
+    "transaction_ids": [
+     "IV-T857943522",
+     "IV-T167313463"
+    ]
+   },
+   {
+    "alert_id": "IV-AL6857702",
+    "rule_id": "TM02",
+    "rule_name": "Rapid movement of funds",
+    "message": "In the 10 days to 12 October 2026, £22,050.00 was deposited and £21,038.00 (95%) was withdrawn within 10 days of arriving, while £1,012.00 was invested. The limits are 80% withdrawn and 20% invested.",
+    "transaction_ids": [
+     "IV-T857943522",
+     "IV-T167313463",
+     "IV-T309888688"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "IV-T857943522",
+    "amount_gbp": 1012,
+    "direction": "in",
+    "counterparty": "Remy Ashford",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-03T10:13:00Z",
+    "covered_by": "KYC-5487",
+    "why": "Customer due diligence summary (KYC-5487) supports this payment"
+   },
+   {
+    "transaction_id": "IV-T167313463",
+    "amount_gbp": 21038,
+    "direction": "in",
+    "counterparty": "Remy Ashford",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-05T10:25:00Z",
+    "covered_by": "KYC-5487",
+    "why": "Customer due diligence summary (KYC-5487) supports this payment"
+   },
+   {
+    "transaction_id": "IV-T309888688",
+    "amount_gbp": 21038,
+    "direction": "out",
+    "counterparty": "Remy Ashford",
+    "country": "United Kingdom",
+    "booked_at": "2026-10-11T10:49:00Z",
+    "covered_by": "KYC-5487",
+    "why": "Customer due diligence summary (KYC-5487) supports this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 2 alerts (TM01, TM02) fired on 3 transactions totalling £43,088.00.",
+    "result": "PASS",
+    "evidence": [
+     "IV-AL3499443",
+     "IV-AL6857702"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£4,900.00/month declared): does the volume need a profile update?",
+    "result": "UNKNOWN",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "PASS",
+    "evidence": [
+     "KYC-5487"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If KYC-5487 were not on file, the flagged activity would have no documented explanation",
+   "new_verdict": "RFI"
+  },
+  "risk_context": [
+   "rapid in-and-out"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "62369dea402a"
+ },
+ {
+  "case_id": "IV-CS606667",
+  "institution": "investment",
+  "customer": {
+   "id": "IV-C400898",
+   "name": "Avery Bramstead",
+   "kind": "individual",
+   "occupation_or_activity": "Software architect",
+   "declared_monthly_gbp": 5550,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "69 Brammore Way, Hartgate, TP9 5QD",
+   "onboarded_on": "2021-09-13",
+   "account_purpose": "Long-term investing",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Bank transfer from own account"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-07-09",
+    "to": "2026-08-07"
+   }
+  },
+  "verdict": "RFI",
+  "reason_code": "RFI_SOURCE_OF_FUNDS",
+  "reason": "Nothing on file explains £15,643.38 to Brightline Global Equity Fund (income units), and nothing else suggests crime. Ask the customer for documents showing what the payment was for — for example an invoice or agreement naming Brightline Global Equity Fund (income units).",
+  "evidence": [
+   "KYC-280",
+   "IV-T805764021",
+   "IV-T360745074",
+   "IV-T856256758"
+  ],
+  "alerts": [
+   {
+    "alert_id": "IV-AL4632388",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 7 August 2026, the account received £16,934.67, 3.0 times the declared monthly income of £5,550.00. The limit is 3 times.",
+    "transaction_ids": [
+     "IV-T856256758",
+     "IV-T768985687"
+    ]
+   },
+   {
+    "alert_id": "IV-AL6744503",
+    "rule_id": "TM08",
+    "rule_name": "Third-party funding or payout",
+    "message": "£15,821.35 was paid out to Jules Wilgate on 7 August 2026. The account holder name does not match the customer, Avery Bramstead.",
+    "transaction_ids": [
+     "IV-T981636410"
+    ]
+   },
+   {
+    "alert_id": "IV-AL4350538",
+    "rule_id": "TM10",
+    "rule_name": "Unusually early fund redemption",
+    "message": "Units in Brightline Global Equity Fund (income units) bought on 21 July 2026 for £16,310.67 were sold back on 6 August 2026 for £15,821.35, 16 days later. The limit is 90 days.",
+    "transaction_ids": [
+     "IV-T805764021",
+     "IV-T360745074",
+     "IV-T122009349",
+     "IV-T353950082"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "IV-T805764021",
+    "amount_gbp": 15643.38,
+    "direction": "out",
+    "counterparty": "Brightline Global Equity Fund (income units)",
+    "country": "United Kingdom",
+    "booked_at": "2026-06-07T11:41:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "IV-T360745074",
+    "amount_gbp": 15290.57,
+    "direction": "out",
+    "counterparty": "Brightline Global Equity Fund (income units)",
+    "country": "United Kingdom",
+    "booked_at": "2026-06-29T11:47:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "IV-T856256758",
+    "amount_gbp": 16310.67,
+    "direction": "in",
+    "counterparty": "Jesse Marden",
+    "country": "United Kingdom",
+    "booked_at": "2026-07-20T10:29:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "IV-T122009349",
+    "amount_gbp": 16310.67,
+    "direction": "out",
+    "counterparty": "Brightline Global Equity Fund (income units)",
+    "country": "United Kingdom",
+    "booked_at": "2026-07-21T11:48:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "IV-T768985687",
+    "amount_gbp": 624,
+    "direction": "in",
+    "counterparty": "Avery Bramstead",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-03T11:04:00Z",
+    "covered_by": "KYC-280",
+    "why": "Customer due diligence summary (KYC-280) supports this payment"
+   },
+   {
+    "transaction_id": "IV-T353950082",
+    "amount_gbp": 15821.35,
+    "direction": "in",
+    "counterparty": "Brightline Global Equity Fund (income units)",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-06T11:03:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "IV-T981636410",
+    "amount_gbp": 15821.35,
+    "direction": "out",
+    "counterparty": "Jules Wilgate",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-07T13:23:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 3 alerts (TM01, TM08, TM10) fired on 7 transactions totalling £95,821.99.",
+    "result": "PASS",
+    "evidence": [
+     "IV-AL4632388",
+     "IV-AL6744503",
+     "IV-AL4350538"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£5,550.00/month declared): does the volume need a profile update?",
+    "result": "UNKNOWN",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "UNKNOWN",
+    "evidence": [
+     "KYC-280"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If the customer provides a document naming Brightline Global Equity Fund (income units) for £15,643.38",
+   "new_verdict": "CLOSE"
+  },
+  "risk_context": [
+   "third-party payer"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "de397ad3a14e"
+ },
+ {
+  "case_id": "IV-CS579840",
+  "institution": "investment",
+  "customer": {
+   "id": "IV-C692098",
+   "name": "Sasha Whithurst",
+   "kind": "individual",
+   "occupation_or_activity": "Senior engineer",
+   "declared_monthly_gbp": 5450,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "26 Bramstead Gardens, Talmore, AT8 2YE",
+   "onboarded_on": "2019-09-16",
+   "account_purpose": "Long-term investing",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Bank transfer from own account"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-08-23",
+    "to": "2026-09-21"
+   }
+  },
+  "verdict": "ESCALATE",
+  "reason_code": "ESC_LISTED_PARTY",
+  "reason": "A counterparty matches an entry on the internal list and nothing on file shows it is a different party. £17,573.39 moved to or from Parker Bramton with no supporting document. The case goes to the MLRO.",
+  "evidence": [
+   "KYC-484",
+   "IV-T376610036",
+   "IV-T909948968"
+  ],
+  "alerts": [
+   {
+    "alert_id": "IV-AL9700824",
+    "rule_id": "TM22",
+    "rule_name": "Counterparty on an internal list",
+    "message": "The receipt of £17,573.39 from Parker Bramton on 19 September 2026 matched internal list entry IV-L99288 on name. Matched party: Parker Bramton.",
+    "transaction_ids": [
+     "IV-T909948968"
+    ]
+   },
+   {
+    "alert_id": "IV-AL6361944",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 21 September 2026, the account received £18,919.39, 3.5 times the declared monthly income of £5,450.00. The limit is 3 times.",
+    "transaction_ids": [
+     "IV-T376610036",
+     "IV-T909948968"
+    ]
+   },
+   {
+    "alert_id": "IV-AL5802644",
+    "rule_id": "TM08",
+    "rule_name": "Third-party funding or payout",
+    "message": "Parker Bramton paid £17,573.39 into the account on 19 September 2026. The account holder name does not match the customer, Sasha Whithurst.",
+    "transaction_ids": [
+     "IV-T909948968"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "IV-T376610036",
+    "amount_gbp": 1346,
+    "direction": "in",
+    "counterparty": "Sasha Whithurst",
+    "country": "United Kingdom",
+    "booked_at": "2026-09-03T08:54:00Z",
+    "covered_by": "KYC-484",
+    "why": "Customer due diligence summary (KYC-484) supports this payment"
+   },
+   {
+    "transaction_id": "IV-T909948968",
+    "amount_gbp": 17573.39,
+    "direction": "in",
+    "counterparty": "Parker Bramton",
+    "country": "United Kingdom",
+    "booked_at": "2026-09-19T10:57:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 3 alerts (TM22, TM01, TM08) fired on 2 transactions totalling £18,919.39.",
+    "result": "PASS",
+    "evidence": [
+     "IV-AL9700824",
+     "IV-AL6361944",
+     "IV-AL5802644"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£5,450.00/month declared): does the volume need a profile update?",
+    "result": "FAIL",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "FAIL",
+    "evidence": [
+     "KYC-484"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "a match on one detail alone does not prove it is the same party",
+    "question": "Does the counterparty match an internal-list entry, and is it the same party?",
+    "result": "FAIL",
+    "evidence": []
+   },
+   {
+    "step": 5,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there suspicion of crime? If so the case goes to the MLRO without asking the customer.",
+    "result": "FAIL",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If evidence showed the counterparty is a different party from the listed entry",
+   "new_verdict": "CLOSE"
+  },
+  "risk_context": [
+   "third-party payer"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "870ca247a397"
+ }
+]
