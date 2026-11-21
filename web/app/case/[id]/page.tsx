@@ -1,5 +1,5 @@
 import Link from "next/link";
-import TopBar from "@/components/TopBar";
+import PageCaption from "@/components/PageCaption";
 import CaseBoard from "@/components/CaseBoard";
 import { findCase, getManifest } from "@/lib/server-data";
 
@@ -15,10 +15,15 @@ export default async function CasePage({
   const found = findCase(id);
   return (
     <main className="relative z-10 mx-auto flex min-h-screen max-w-[1600px] flex-col">
-      <TopBar fixture={manifest?.fixture ?? false} />
+      <PageCaption>
+        One case file — the money-flow graph, the policy checks the engine ran,
+        and the evidence each verdict rests on. Press DECIDE LIVE to re-run the
+        engine on this case in front of you.
+      </PageCaption>
       {found ? (
         <CaseBoard
           trace={found.trace}
+          precomputedAt={manifest?.generated_at ?? null}
           peers={found.peers.map((t) => ({
             case_id: t.case_id,
             verdict: t.verdict,
@@ -34,7 +39,7 @@ export default async function CasePage({
               <code className="mono text-accent">{id}</code> is not in the loaded traces.
             </p>
             <Link
-              href="/"
+              href="/queue"
               className="mono mt-4 inline-block rounded-lg border border-line-2 px-4 py-2 text-[12px] text-ink-100 transition-colors hover:border-accent"
             >
               ← Back to queue
