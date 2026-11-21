@@ -32,6 +32,7 @@ import hashlib
 import json
 import os
 import re
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -227,6 +228,15 @@ class GrokAssist:
         self.failures = 0         # transport/timeout failures
         self.budget_stops = 0     # candidates dropped by the budget cap
         self._mem = {}            # key -> cache record
+        # TLS: macOS Pythons often lack the system store; prefer an
+        # explicit cafile when present. Verification is never disabled.
+        self._ctx = None
+        for ca in (os.environ.get("SSL_CERT_FILE"), "/etc/ssl/cert.pem"):
+            if ca and os.path.exists(ca):
+                self._ctx = ssl.create_default_context(cafile=ca)
+                break
+        if self._ctx is None:
+            self._ctx = ssl.create_default_context()
         if enabled and cache_dir:
             os.makedirs(cache_dir, exist_ok=True)
 
@@ -303,7 +313,8 @@ class GrokAssist:
             headers={"Content-Type": "application/json",
                      "Authorization": "Bearer " + self.api_key},
             method="POST")
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:
+        with urllib.request.urlopen(req, timeout=self.timeout,
+                                    context=self._ctx) as r:
             out = json.loads(r.read())
         content = out["choices"][0]["message"]["content"]
         return json.loads(content)
