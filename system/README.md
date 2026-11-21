@@ -67,9 +67,33 @@ all iteration is sorted, so outputs are byte-identical across runs
    own-account; group funding documented by a group structure is a group
    company.
 
+## Optional Grok assist (`--grok`)
+
+`system/run --grok <institution> <out>` (or just a configured
+`XAI_API_KEY`) enables an opt-in reading layer in `grok_assist.py`.
+Grok's only job is to read evidence the deterministic parser could not
+handle — unrecognised document types with financial content, recognised
+types whose fields/tables yielded nothing usable — and to gloss rule IDs
+the engine does not model. It returns strict JSON (fixed schema,
+temperature 0, fixed seed); answers are validated in Python and anything
+invalid, timed out or missing falls back to the deterministic parse.
+Grok never decides a verdict.
+
+Determinism: every request is keyed by
+`sha256(model | prompt_version | input bytes)` and the answer — success
+or failure — is cached in `<outdir>/grok_cache/`. Warm runs replay the
+cache and are byte-identical, including traces. Committed fixtures in
+`system/grok_fixtures/` are consulted read-only. Per run: 8s timeout,
+concurrency 4, budget cap 200 calls (`GROK_BUDGET`). A run writes
+`grok_summary.json` (calls, cache hits, docs read) and each trace marks
+Grok-read documents under `grok.docs` (`assisted_by: "grok"` + cache
+key). Without a key or the flag the layer is inert: no network, no
+behaviour change.
+
 ## Files
 
 - `engine.py` — the whole engine (parser, coverage, decision, traces, flip)
+- `grok_assist.py` — optional Grok reading layer (`--grok`); see above
 - `run` — executable wrapper (resolves its own directory; full paths OK)
 - `validate.py` — contract check: line count, legal reason codes, sentence
   count, evidence-ID existence

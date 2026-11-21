@@ -76,6 +76,21 @@ export interface Trace {
   risk_context: string[];
   engine_version: string;
   input_hash: string;
+  grok?: {
+    docs: Record<string, {
+      assisted_by: "grok";
+      cache_key: string;
+      note: string | null;
+    }>;
+    rules: Record<string, {
+      assisted_by: "grok";
+      cache_key: string;
+      measures: string;
+      threshold_gbp: number | null;
+      window_days: number | null;
+      typical_risk: string;
+    }>;
+  } | null;
 }
 
 export interface Manifest {
