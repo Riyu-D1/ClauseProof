@@ -7,10 +7,11 @@
   --color-obsidian-800: #11161f;
   --color-obsidian-700: #1a2130;
   --color-obsidian-600: #26303f;
-  --color-ink-100: #e8edf4;
-  --color-ink-300: #aab4c4;
-  --color-ink-500: #6b7688;
-  --color-ink-600: #4a5464;
+  --color-ink-100: #eef2f8;
+  --color-ink-300: #b9c4d4;
+  --color-ink-400: #95a2b6;
+  --color-ink-500: #7f8ca1;
+  --color-ink-600: #5b6678;
   --color-accent: #37e0d8;
   --color-close: #2bd47d;
   --color-rfi: #ffb020;
@@ -50,8 +51,8 @@ body {
 }
 
 .panel {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.012));
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.032), rgba(255, 255, 255, 0.014));
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;
 }
 
@@ -98,6 +99,59 @@ body {
 .edge-flow {
   stroke-dasharray: 7 5;
   animation: dash-flow 1s linear infinite;
+}
+
+/* entrance: under-glow draws the path (pathLength=1 normalises dasharray) */
+@keyframes edge-draw {
+  to { stroke-dashoffset: 0; }
+}
+.edge-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: edge-draw 0.7s ease-out forwards;
+}
+.edge-draw.edge-uncovered {
+  animation: edge-draw 0.7s ease-out forwards, cp-pulse 1.6s ease-in-out infinite;
+}
+
+/* entrance: the dashed flow line fades in behind the sweep */
+@keyframes cp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.edge-fade {
+  animation: cp-fade 0.45s ease both, dash-flow 1s linear infinite;
+}
+.edge-fade.edge-uncovered {
+  animation:
+    cp-fade 0.45s ease both,
+    dash-flow 1s linear infinite,
+    cp-pulse 1.6s ease-in-out infinite;
+}
+.edge-chipwrap {
+  animation: cp-fade 0.4s ease both;
+}
+
+/* node entrance */
+@keyframes cp-node {
+  from { opacity: 0; transform: scale(0.92) translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.cp-node-in {
+  animation: cp-node 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+
+/* "running…" ellipsis in the proof popover */
+@keyframes cp-dots {
+  0% { content: ""; }
+  25% { content: "."; }
+  50% { content: ".."; }
+  75% { content: "..."; }
+  100% { content: ""; }
+}
+.cp-dots::after {
+  content: "";
+  animation: cp-dots 1.2s steps(1) infinite;
 }
 
 /* doc chip on edges */
