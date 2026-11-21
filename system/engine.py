@@ -294,9 +294,20 @@ class Doc:
     # ----- specific extractors -----
 
     def _extract_invoice(self):
-        payee = self.field("pay to", "supplier")
+        def party_name(v):
+            v = re.split(r",|\s+account\b|\s+iban\b", v,
+                         flags=re.I)[0].strip()
+            return v or None
+
+        payee = self.field("pay to")
         if payee:
-            payee = re.split(r",|\s+account\s+|\s+iban", payee)[0].strip()
+            payee = party_name(payee)
+            if payee and re.match(r"(?i)^(iban|account|acct|sort\b)",
+                                  payee):
+                payee = None
+        if not payee:
+            payee = party_name(self.field("supplier", "carrier",
+                                          "payee", "seller") or "")
         if not payee:
             m = re.search(r"from\s+(.+?)(?:\s*$|\s+for)", self.title)
             payee = m.group(1).strip() if m else None
@@ -317,14 +328,31 @@ class Doc:
     def _extract_multi_invoice(self):
         m = re.search(r"from\s+(.+?)\s*$", self.title)
         supplier = m.group(1).strip() if m else self.field("supplier")
+        payer_cols = ("exporter", "importer", "customer", "client",
+                      "payer", "shipper", "bill to", "billed")
         for tbl in self.tables:
             hdr = [h.lower() for h in tbl[0]]
             ai = next((i for i, h in enumerate(hdr)
                        if "amount" in h or "total" in h), len(hdr) - 1)
+            pi = next((i for i, h in enumerate(hdr)
+                       if any(p in h for p in payer_cols)), None)
+            si = next((i for i, h in enumerate(hdr)
+                       if "supplier" in h or "vendor" in h), None)
             for row in tbl[1:]:
                 amt = parse_money(row[ai]) if ai < len(row) else None
-                if amt:
-                    self.add("payable", payee=supplier, amount=amt,
+                if not amt:
+                    continue
+                if pi is not None and pi < len(row):
+                    # an invoice the client issued to a payer: a
+                    # receivable that covers money coming in
+                    self.add("receivable", payer=row[pi].strip(),
+                             amount=amt, date=self.dated,
+                             text=row[0] if row else "")
+                else:
+                    payee = (row[si].strip()
+                             if si is not None and si < len(row)
+                             else supplier)
+                    self.add("payable", payee=payee, amount=amt,
                              date=self.dated, instalments=False,
                              text=row[0] if row else "")
 
@@ -461,6 +489,10 @@ class Doc:
         acct = re.search(r"account ending\s+(\w+)", self.text)
         if acct:
             self.claims[-1]["account_hint"] = acct.group(1)
+        if re.search(r"account\b[^.\n]*\bin your name|in your name|"
+                     r"in the customer's name|your own account",
+                     self.text, re.I):
+            self.claims[-1]["own_name_attested"] = True
 
     def _extract_event(self):
         amount = (self.money_field("paid to client's", "settlement payment",
@@ -1258,6 +1290,10 @@ class CaseCtx:
             cov = self.match_funding(t)
             if cov:
                 return cov
+            # invoices the client issued to the payer (receivables)
+            cov = self.match_receivable(t)
+            if cov:
+                return cov
             # group company
             cov = self.match_group(t)
             if cov:
@@ -1292,6 +1328,13 @@ class CaseCtx:
             cov = self.match_prev_review(t)
             if cov:
                 return cov
+            # a business paying a counterparty it has paid several
+            # times before, in a declared corridor, is within profile
+            if cust["kind"] == "business" and cp and \
+                    self.established_counterparty(t):
+                return Coverage(True, "WITHIN_PROFILE", (),
+                                f"{cp} is a long-standing counterparty",
+                                "established", 0.6)
             if amt_g <= MINOR_TXN_GBP:
                 return Coverage(True, None, (),
                                 "small transfer within routine spend",
@@ -1323,18 +1366,32 @@ class CaseCtx:
                             f"{d.doc_id} re-verified the customer; "
                             f"transfer is in their own name",
                             "own_account")
-        # customer letter naming an own account
-        for d, c in self.all_claims("refund"):
-            pass
-        if self.inst.name == "investment":
-            return Coverage(True, "OWN_ACCOUNT", (),
-                            "account holder name on the transfer is the "
-                            "customer (platform pays only to own-name "
-                            "accounts)", "own_account")
-        if self.inst.name == "payments_fx":
-            return Coverage(True, "OWN_ACCOUNT", (),
-                            "funding from an account in the client's own "
-                            "name", "own_account")
+        # a refund or event document attesting the money moved to or
+        # from an account "in your name" proves the account is the
+        # customer's own for the transfer of that amount
+        for kind in ("refund", "event"):
+            for d, c in self.all_claims(kind):
+                if not c.get("own_name_attested") or \
+                        c.get("amount") is None:
+                    continue
+                if abs(t["amount_gbp"] - c["amount"]) <= max(
+                        2.0, c["amount"] * 0.03):
+                    return Coverage(
+                        True, "OWN_ACCOUNT", (d.doc_id,),
+                        f"{d.doc_id} confirms the other account is "
+                        f"held in the customer's name", "own_account")
+        # A same-name account elsewhere counts as the customer's own
+        # account only when a document proves they hold it. For the
+        # payments firm, inbound funding in the client's own name is the
+        # declared funding channel, not an unexplained transfer.
+        if self.inst.name == "payments_fx" and direction == "in":
+            chans = " ".join(self.cust.get("declared", {})
+                             .get("expected_channels") or [])
+            if "own" in chans.lower():
+                return Coverage(True, "WITHIN_PROFILE", (),
+                                "funding from an account in the "
+                                "client's own name (declared channel)",
+                                "profile")
         # name match but no documentary proof
         baseline = self.declared_baseline()
         if baseline and t["amount_gbp"] <= baseline:
@@ -1497,6 +1554,24 @@ class CaseCtx:
                                 "funding")
         return None
 
+    def match_receivable(self, t):
+        """Documents the client issued to a payer (e.g. freight or
+        service invoices) explain money coming in from that party."""
+        cp = t["counterparty_name"]
+        if not cp:
+            return None
+        for d, c in self.all_claims("receivable"):
+            if not c.get("payer") or not same_party(c["payer"], cp):
+                continue
+            if c.get("amount") is not None and \
+                    abs(t["amount_gbp"] - c["amount"]) <= max(
+                        2.0, c["amount"] * 0.03):
+                return Coverage(True, "INVOICE_MATCHES", (d.doc_id,),
+                                f"{d.doc_id} ({c.get('text')}) bills "
+                                f"{amt(c['amount'])} to {cp}",
+                                "receivable")
+        return None
+
     def match_group(self, t):
         cp = t["counterparty_name"]
         if not cp:
@@ -1526,6 +1601,26 @@ class CaseCtx:
                                 f"closed the same counterparty",
                                 "prev_review")
         return None
+
+    def established_counterparty(self, t):
+        """A counterparty the business has paid at least three times
+        before this transaction, in a country it declared."""
+        cp = t["counterparty_name"]
+        country = t.get("country")
+        declared = self.cust.get("declared", {}).get(
+            "expected_countries") or []
+        if country and declared and \
+                not any(c.lower() in country.lower()
+                        or country.lower() in c.lower()
+                        for c in declared):
+            return False
+        prior = sum(
+            1 for x in self.txns.values()
+            if x["direction"] == "out"
+            and x["booked_at"] < t["booked_at"]
+            and x["counterparty_name"]
+            and same_party(x["counterparty_name"], cp))
+        return prior >= 3
 
     def match_payable(self, t):
         cp = t["counterparty_name"]
@@ -1996,6 +2091,32 @@ class CaseCtx:
                         "unexplained money in was paid out within "
                         "48 hours",
                         [t["transaction_id"] for t in ins])
+        # conduit: a business took third-party money in and disbursed
+        # it to many unrelated individuals
+        for g in self.gaps:
+            if g.kind not in ("third_party", "biz_counterparties") or \
+                    self.cust["kind"] != "business":
+                continue
+            tp_in = any(
+                t["direction"] == "in"
+                and t["counterparty_name"]
+                and not same_person(t["counterparty_name"],
+                                    self.cust["name"])
+                and not self.is_employer(t["counterparty_name"])
+                for t in self.txns_of_alert(g.alert))
+            payees = {t["counterparty_name"]
+                      for tid in self.alerted_ids
+                      for t in [self.txns.get(tid)]
+                      if t and t["direction"] == "out"
+                      and t["counterparty_name"]
+                      and not is_company(t["counterparty_name"])
+                      and not same_person(t["counterparty_name"],
+                                          self.cust["name"])}
+            if tp_in and len(payees) >= 5:
+                return ("ESC_THIRD_PARTY_FUNDING",
+                        "third-party money in was disbursed to many "
+                        "unrelated individuals",
+                        sorted(payees))
         # many-party pattern for an individual
         for g in self.gaps:
             if g.kind == "many_parties" and \
