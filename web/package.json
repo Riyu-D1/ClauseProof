@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "linkcheck": "node scripts/link-check.mjs"
   },
   "dependencies": {
     "@xyflow/react": "^13.0.2",
