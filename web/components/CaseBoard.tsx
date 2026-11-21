@@ -9,6 +9,7 @@ import EvidenceDrawer from "@/components/EvidenceDrawer";
 import FlipCard from "@/components/FlipCard";
 import FlowGraph from "@/components/FlowGraph";
 import ShortcutHelp from "@/components/ShortcutHelp";
+import OsintPanel from "@/components/OsintPanel";
 import VerdictPill from "@/components/VerdictPill";
 import { INSTITUTION_LABEL, type Trace, type Verdict } from "@/lib/types";
 
@@ -82,6 +83,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
           </span>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <OsintPanel trace={trace} />
           <button
             onClick={() => setRunId((n) => n + 1)}
             className="mono rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-ink-300 hover:border-[#37e0d855] hover:text-ink-100"
