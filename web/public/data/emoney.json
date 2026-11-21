@@ -1,0 +1,464 @@
+[
+ {
+  "case_id": "EM-CS574471",
+  "institution": "emoney",
+  "customer": {
+   "id": "EM-C201618",
+   "name": "Jules Kingswell",
+   "kind": "individual",
+   "occupation_or_activity": "Accountant",
+   "declared_monthly_gbp": 2750,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "113 Kingsmore Gardens, Falby, ZW1 4EU",
+   "onboarded_on": "2021-02-24",
+   "account_purpose": "Everyday banking",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Bank top-up",
+    "Card",
+    "Transfers"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-08-08",
+    "to": "2026-09-06"
+   }
+  },
+  "verdict": "CLOSE",
+  "reason_code": "THIRD_PARTY_DOCUMENTED",
+  "reason": "Every alerted transaction is explained by documents on file. KYC-2926 (Customer due diligence summary); SET-2710 (Settlement agreement letter from Cordale Logistics Ltd) reconcile to the £13,329.62 of flagged activity for Jules Kingswell.",
+  "evidence": [
+   "KYC-2926",
+   "SET-2710",
+   "EM-T591503369",
+   "EM-T465178062",
+   "EM-T937036378"
+  ],
+  "alerts": [
+   {
+    "alert_id": "EM-AL2703162",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 6 September 2026, the account received £13,329.62, 4.8 times the declared monthly income of £2,750.00. The limit is 3 times.",
+    "transaction_ids": [
+     "EM-T591503369",
+     "EM-T465178062",
+     "EM-T937036378"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "EM-T591503369",
+    "amount_gbp": 265.54,
+    "direction": "in",
+    "counterparty": "Jules Kingswell",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-18T09:06:00Z",
+    "covered_by": "KYC-2926",
+    "why": "Customer due diligence summary (KYC-2926) supports this payment"
+   },
+   {
+    "transaction_id": "EM-T465178062",
+    "amount_gbp": 304.08,
+    "direction": "in",
+    "counterparty": "Jules Kingswell",
+    "country": "United Kingdom",
+    "booked_at": "2026-09-02T17:07:00Z",
+    "covered_by": "KYC-2926",
+    "why": "Customer due diligence summary (KYC-2926) supports this payment"
+   },
+   {
+    "transaction_id": "EM-T937036378",
+    "amount_gbp": 12760,
+    "direction": "in",
+    "counterparty": "Cordale Logistics Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-09-04T10:43:00Z",
+    "covered_by": "SET-2710",
+    "why": "Settlement agreement letter from Cordale Logistics Ltd (SET-2710) supports this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 1 alert (TM01) fired on 3 transactions totalling £13,329.62.",
+    "result": "PASS",
+    "evidence": [
+     "EM-AL2703162"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£2,750.00/month declared): does the volume need a profile update?",
+    "result": "UNKNOWN",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "PASS",
+    "evidence": [
+     "KYC-2926",
+     "SET-2710"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If KYC-2926 were not on file, the flagged activity would have no documented explanation",
+   "new_verdict": "RFI"
+  },
+  "risk_context": [],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "b4274ecb1d2d"
+ },
+ {
+  "case_id": "EM-CS534837",
+  "institution": "emoney",
+  "customer": {
+   "id": "EM-C710073",
+   "name": "Rowan Falden",
+   "kind": "individual",
+   "occupation_or_activity": "Librarian",
+   "declared_monthly_gbp": 2050,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "127 Hollwell Avenue, Dunton, LN19 2HL",
+   "onboarded_on": "2024-09-13",
+   "account_purpose": "Everyday banking",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Bank top-up",
+    "Card",
+    "Transfers"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-07-10",
+    "to": "2026-08-08"
+   }
+  },
+  "verdict": "RFI",
+  "reason_code": "RFI_PURPOSE_DOCUMENTS",
+  "reason": "Nothing on file explains £1,870.00 from Cranridge Lettings Ltd, and nothing else suggests crime. Ask the customer for documents showing what the payment was for — for example an invoice or agreement naming Cranridge Lettings Ltd.",
+  "evidence": [
+   "KYC-2957",
+   "EM-T568755546",
+   "EM-T658192042",
+   "EM-T502640857"
+  ],
+  "alerts": [
+   {
+    "alert_id": "EM-AL4988324",
+    "rule_id": "TM02",
+    "rule_name": "Rapid movement of funds",
+    "message": "In the 10 days to 8 August 2026, the account received £2,939.14 and paid out £2,725.00 within 48 hours of money arriving, 93% of what came in. The limit is 80%.",
+    "transaction_ids": [
+     "EM-T568755546",
+     "EM-T658192042",
+     "EM-T502640857",
+     "EM-T319242013"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "EM-T568755546",
+    "amount_gbp": 214.14,
+    "direction": "in",
+    "counterparty": "Rowan Falden",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-02T09:24:00Z",
+    "covered_by": "KYC-2957",
+    "why": "Customer due diligence summary (KYC-2957) supports this payment"
+   },
+   {
+    "transaction_id": "EM-T658192042",
+    "amount_gbp": 1870,
+    "direction": "in",
+    "counterparty": "Cranridge Lettings Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-07T10:07:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "EM-T502640857",
+    "amount_gbp": 855,
+    "direction": "in",
+    "counterparty": "Rowan Falden",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-07T12:07:00Z",
+    "covered_by": "KYC-2957",
+    "why": "Customer due diligence summary (KYC-2957) supports this payment"
+   },
+   {
+    "transaction_id": "EM-T319242013",
+    "amount_gbp": 2725,
+    "direction": "out",
+    "counterparty": "Lynholt Homes Ltd",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-08T12:07:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 1 alert (TM02) fired on 4 transactions totalling £5,664.14.",
+    "result": "PASS",
+    "evidence": [
+     "EM-AL4988324"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£2,050.00/month declared): does the volume need a profile update?",
+    "result": "PASS",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "UNKNOWN",
+    "evidence": [
+     "KYC-2957"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there any sign of crime, or is one document or answer enough to settle the case?",
+    "result": "PASS",
+    "evidence": []
+   }
+  ],
+  "flip": {
+   "change": "If the customer provides a document naming Cranridge Lettings Ltd for £1,870.00",
+   "new_verdict": "CLOSE"
+  },
+  "risk_context": [
+   "rapid in-and-out"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "20bda5b23976"
+ },
+ {
+  "case_id": "EM-CS729736",
+  "institution": "emoney",
+  "customer": {
+   "id": "EM-C352613",
+   "name": "Frankie Ashcombe",
+   "kind": "individual",
+   "occupation_or_activity": "Physiotherapist",
+   "declared_monthly_gbp": 2900,
+   "expected_countries": [
+    "United Kingdom"
+   ],
+   "risk_rating": "Low",
+   "address": "65 Millmere Place, Radgate, WX16 9JU",
+   "onboarded_on": "2019-08-17",
+   "account_purpose": "Everyday banking",
+   "source_of_funds": "Salary",
+   "expected_channels": [
+    "Bank top-up",
+    "Card",
+    "Transfers"
+   ],
+   "held_payment_id": null,
+   "review_window": {
+    "from": "2026-07-14",
+    "to": "2026-08-12"
+   }
+  },
+  "verdict": "ESCALATE",
+  "reason_code": "ESC_HIGH_RISK_CORRIDOR",
+  "reason": "Unexplained funds from United Kingdom, a higher-risk corridor the customer did not declare. £7,304.68 to Reese Calholt has no credible explanation on file. Escalated to the MLRO.",
+  "evidence": [
+   "KYC-3154",
+   "EM-T373055805",
+   "EM-T804195110",
+   "EM-T225664043"
+  ],
+  "alerts": [
+   {
+    "alert_id": "EM-AL4675109",
+    "rule_id": "TM01",
+    "rule_name": "Activity exceeds the expected profile",
+    "message": "In the 30 days to 12 August 2026, the account received £23,105.31, 8.0 times the declared monthly income of £2,900.00. The limit is 3 times.",
+    "transaction_ids": [
+     "EM-T373055805",
+     "EM-T804195110",
+     "EM-T225664043",
+     "EM-T697331644",
+     "EM-T518088295"
+    ]
+   },
+   {
+    "alert_id": "EM-AL4636199",
+    "rule_id": "TM06",
+    "rule_name": "Unexpected higher-risk corridor",
+    "message": "In the 30 days to 12 August 2026, £19,252.56 moved to or from Lebanon, rated higher risk and not among the countries the customer declared. The limit is £5,000.00.",
+    "transaction_ids": [
+     "EM-T881230647",
+     "EM-T950742648",
+     "EM-T602456195",
+     "EM-T114020850"
+    ]
+   }
+  ],
+  "coverage": [
+   {
+    "transaction_id": "EM-T373055805",
+    "amount_gbp": 169.02,
+    "direction": "in",
+    "counterparty": "Frankie Ashcombe",
+    "country": "United Kingdom",
+    "booked_at": "2026-07-18T17:00:00Z",
+    "covered_by": "KYC-3154",
+    "why": "Customer due diligence summary (KYC-3154) supports this payment"
+   },
+   {
+    "transaction_id": "EM-T804195110",
+    "amount_gbp": 286.21,
+    "direction": "in",
+    "counterparty": "Frankie Ashcombe",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-02T14:07:00Z",
+    "covered_by": "KYC-3154",
+    "why": "Customer due diligence summary (KYC-3154) supports this payment"
+   },
+   {
+    "transaction_id": "EM-T225664043",
+    "amount_gbp": 7304.68,
+    "direction": "in",
+    "counterparty": "Reese Calholt",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-06T10:18:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "EM-T697331644",
+    "amount_gbp": 7642.96,
+    "direction": "in",
+    "counterparty": "Alex Brammere",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-07T10:32:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "EM-T518088295",
+    "amount_gbp": 7702.44,
+    "direction": "in",
+    "counterparty": "Jules Dunmere",
+    "country": "United Kingdom",
+    "booked_at": "2026-08-08T10:14:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this receipt"
+   },
+   {
+    "transaction_id": "EM-T881230647",
+    "amount_gbp": 4813.14,
+    "direction": "out",
+    "counterparty": "Sam Langdale",
+    "country": "Lebanon",
+    "booked_at": "2026-08-09T13:04:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "EM-T950742648",
+    "amount_gbp": 4813.14,
+    "direction": "out",
+    "counterparty": "Cameron Whitford",
+    "country": "Lebanon",
+    "booked_at": "2026-08-10T14:10:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "EM-T602456195",
+    "amount_gbp": 4813.14,
+    "direction": "out",
+    "counterparty": "Max Wenton",
+    "country": "Lebanon",
+    "booked_at": "2026-08-11T15:22:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   },
+   {
+    "transaction_id": "EM-T114020850",
+    "amount_gbp": 4813.14,
+    "direction": "out",
+    "counterparty": "Hayden Wilwick",
+    "country": "Lebanon",
+    "booked_at": "2026-08-11T16:07:00Z",
+    "covered_by": null,
+    "why": "no document on file explains this payment"
+   }
+  ],
+  "checks": [
+   {
+    "step": 1,
+    "policy_clause": "one case gets one verdict, even when several rules fired",
+    "question": "Scope the case: 2 alerts (TM01, TM06) fired on 9 transactions totalling £42,357.87.",
+    "result": "PASS",
+    "evidence": [
+     "EM-AL4675109",
+     "EM-AL4636199"
+    ]
+   },
+   {
+    "step": 2,
+    "policy_clause": "money received over 30 days vs the declared profile",
+    "question": "Compare activity with the declared profile (£2,900.00/month declared): does the volume need a profile update?",
+    "result": "FAIL",
+    "evidence": []
+   },
+   {
+    "step": 3,
+    "policy_clause": "close only when the evidence explains the activity",
+    "question": "Does a document on file explain every transaction the alerts fired on?",
+    "result": "FAIL",
+    "evidence": [
+     "KYC-3154"
+    ]
+   },
+   {
+    "step": 4,
+    "policy_clause": "once there is suspicion, escalate rather than ask the customer",
+    "question": "Is there suspicion of crime? If so the case goes to the MLRO without asking the customer.",
+    "result": "FAIL",
+    "evidence": []
+   }
+  ],
+  "flip": null,
+  "risk_context": [
+   "higher-risk corridor",
+   "third-party payer"
+  ],
+  "engine_version": "fixture-1.0.0",
+  "input_hash": "94978fd5c67e"
+ }
+]

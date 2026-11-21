@@ -1,0 +1,24 @@
+{
+ "generated_at": "2026-11-21T11:58:29.361Z",
+ "fixture": true,
+ "institutions": [
+  {
+   "id": "bank",
+   "cases": 3
+  },
+  {
+   "id": "emoney",
+   "cases": 3
+  },
+  {
+   "id": "investment",
+   "cases": 3
+  },
+  {
+   "id": "payments_fx",
+   "cases": 3
+  }
+ ],
+ "repro": true,
+ "total_cases": 12
+}
