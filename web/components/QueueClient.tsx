@@ -106,6 +106,7 @@ export default function QueueClient({
   const hasDemo = !!demo?.picks?.length;
   const [tab, setTab] = useState(hasDemo ? DEMO_TAB : (institutions[0]?.id ?? ""));
   const [query, setQuery] = useState("");
+  const [verdictFilter, setVerdictFilter] = useState<Verdict | null>(null);
   const [cursor, setCursor] = useState(0);
   const [help, setHelp] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -147,7 +148,8 @@ export default function QueueClient({
   const rows = useMemo(() => {
     if (tab === DEMO_TAB) return [];
     const q = query.trim().toLowerCase();
-    const all = traces[tab] ?? [];
+    let all = traces[tab] ?? [];
+    if (verdictFilter) all = all.filter((t) => t.verdict === verdictFilter);
     if (!q) return all;
     return all.filter(
       (t) =>
@@ -156,12 +158,18 @@ export default function QueueClient({
         t.coverage.some((c) => c.counterparty.toLowerCase().includes(q)) ||
         t.reason_code.toLowerCase().includes(q)
     );
-  }, [traces, tab, query]);
+  }, [traces, tab, query, verdictFilter]);
+
+  const verdictCounts = useMemo(() => {
+    const m: Record<Verdict, number> = { CLOSE: 0, RFI: 0, ESCALATE: 0 };
+    for (const t of traces[tab] ?? []) m[t.verdict] += 1;
+    return m;
+  }, [traces, tab]);
 
   const shown = rows.slice(0, PAGE_SIZE);
   const picks = useMemo(() => demo?.picks ?? [], [demo]);
 
-  useEffect(() => setCursor(0), [tab, query]);
+  useEffect(() => setCursor(0), [tab, query, verdictFilter]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -245,7 +253,7 @@ export default function QueueClient({
       <ProofBar manifest={manifest} institution={instForProof} />
 
       {/* tabs: Nothing segmented control — active = inverted */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center overflow-hidden rounded-lg border border-line-2">
           {hasDemo && segBtn(DEMO_TAB, "DEMO", `${demo!.picks.length} picks`)}
           {institutions.map((inst) =>
@@ -257,6 +265,30 @@ export default function QueueClient({
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">
+          {tab !== DEMO_TAB && (
+            <div className="hidden items-center overflow-hidden rounded-md border border-line-2 md:flex" role="group" aria-label="Filter by verdict">
+              <button
+                onClick={() => setVerdictFilter(null)}
+                className={`mono px-2.5 py-1.5 text-[9.5px] font-bold tracking-[0.1em] transition-colors ${
+                  verdictFilter === null ? "bg-ink-100 text-obsidian-950" : "text-ink-500 hover:text-ink-100"
+                }`}
+              >
+                ALL
+              </button>
+              {VERDICTS.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setVerdictFilter(verdictFilter === v ? null : v)}
+                  className={`mono px-2.5 py-1.5 text-[9.5px] font-bold tracking-[0.1em] transition-colors ${
+                    verdictFilter === v ? "bg-ink-100 text-obsidian-950" : "text-ink-500 hover:text-ink-100"
+                  }`}
+                  style={verdictFilter === v ? undefined : { color: `${VERDICT_COLOR[v]}99` }}
+                >
+                  {v} {verdictCounts[v].toLocaleString("en-GB")}
+                </button>
+              ))}
+            </div>
+          )}
           {tab !== DEMO_TAB && (
             <div className="relative">
               <input
