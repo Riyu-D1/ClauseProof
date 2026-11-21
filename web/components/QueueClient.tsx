@@ -266,7 +266,7 @@ export default function QueueClient({
         </div>
         <div className="ml-auto flex items-center gap-2">
           {tab !== DEMO_TAB && (
-            <div className="hidden items-center overflow-hidden rounded-md border border-line-2 md:flex" role="group" aria-label="Filter by verdict">
+            <div className="flex items-center overflow-hidden rounded-md border border-line-2" role="group" aria-label="Filter by verdict">
               <button
                 onClick={() => setVerdictFilter(null)}
                 className={`mono px-2.5 py-1.5 text-[9.5px] font-bold tracking-[0.1em] transition-colors ${

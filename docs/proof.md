@@ -58,12 +58,14 @@ identical=True runs=5 unique_hashes=1
 
 ## 4. End-to-end smoke — `scripts/smoke.sh`
 
-18 checks against the running app (home, 4 institution queues, one case page
-per verdict, evidence API, live 5× proof, 4 scripted plays through the real
-engine, stage page, OSINT graceful-offline, LAN play URL):
+21 checks against the running app (overview, queue and proof pages, 4
+institution queues, one case page per verdict, a live one-case engine run via
+`/api/decide` compared with the stored verdict, evidence API, live 5× proof,
+4 scripted plays through the real engine, stage page, OSINT
+graceful-offline, LAN play URL):
 
 ```
-SMOKE: ALL 18 CHECKS PASSED
+SMOKE: ALL 21 CHECKS PASSED
 ```
 
 ## 5. Verdict split on the 4,000 development cases

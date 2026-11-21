@@ -55,10 +55,11 @@ await shot("nav-queue");
 await go(`/case/${caseId}`, 3000);
 await shot("nav-case");
 
-// decide live — capture while the checks animate in after the result lands
+// decide live on the multi-check escalate pick — capture mid-animation
+await go("/case/PX-CS313282", 2500).catch(() => {});
 await page.getByRole("button", { name: /DECIDE LIVE/ }).first().click();
 await page.waitForSelector('text=LIVE — decided just now', { timeout: 90000 });
-await page.waitForTimeout(2600); // mid-animation: checks still landing
+await page.waitForTimeout(1200); // mid-animation: checks still landing
 await shot("nav-decide-live");
 
 await go("/live", 2200);
