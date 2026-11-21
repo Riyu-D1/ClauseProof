@@ -42,9 +42,67 @@ ESC_CODES = {
 }
 CODE_BY_VERDICT = {"CLOSE": CLOSE_CODES, "RFI": RFI_CODES, "ESCALATE": ESC_CODES}
 
-MONTHS = {m.lower(): i for i, m in enumerate(
-    ["January", "February", "March", "April", "May", "June", "July",
-     "August", "September", "October", "November", "December"], 1)}
+MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+               "July", "August", "September", "October", "November",
+               "December"]
+MONTHS = {m.lower(): i for i, m in enumerate(MONTH_NAMES, 1)}
+
+# Diagnostics go to stderr only, capped so a corrupt input file can never
+# flood the log or slow the run.
+_MAX_WARN = 40
+_warn_count = 0
+
+
+def warn(msg):
+    global _warn_count
+    if _warn_count < _MAX_WARN:
+        sys.stderr.write(f"engine: {msg}\n")
+        _warn_count += 1
+        if _warn_count == _MAX_WARN:
+            sys.stderr.write("engine: further warnings suppressed\n")
+
+
+def _s(v, default=""):
+    """Coerce to str; None -> default."""
+    if v is None:
+        return default
+    if isinstance(v, str):
+        return v
+    return str(v)
+
+
+def _sopt(v):
+    """Coerce to str, preserving None."""
+    if v is None:
+        return None
+    return _s(v)
+
+
+def _num(v, default=0.0):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _strlist(v):
+    if isinstance(v, (list, tuple)):
+        return [_s(x) for x in v if x is not None]
+    if isinstance(v, str) and v:
+        return [v]
+    return []
+
+
+def _sdict(v):
+    return dict(v) if isinstance(v, dict) else {}
+
+
+def isodate(v):
+    """Parse an ISO 'YYYY-MM-DD[...]' date string; None on failure."""
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except (ValueError, TypeError):
+        return None
 
 MONEY_RE = re.compile(r"£\s*([0-9][0-9,]*(?:\.\d{1,2})?)")
 DATE_RE = re.compile(r"\b(\d{1,2})\s+(January|February|March|April|May|June|July|"
@@ -75,16 +133,24 @@ def parse_money(s):
     return float(m.group(1).replace(",", "")) if m else None
 
 
+def _mkdate(y, m, d):
+    try:
+        return date(y, m, d)
+    except ValueError:
+        return None
+
+
 def parse_date_text(s):
     """Parse '4 August 2026' or '2026-08-04' -> date."""
     if not s:
         return None
     m = ISO_DATE_RE.search(s)
     if m:
-        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        return _mkdate(int(m.group(1)), int(m.group(2)), int(m.group(3)))
     m = DATE_RE.search(s)
     if m:
-        return date(int(m.group(3)), MONTHS[m.group(2).lower()], int(m.group(1)))
+        return _mkdate(int(m.group(3)), MONTHS[m.group(2).lower()],
+                       int(m.group(1)))
     return None
 
 
@@ -98,10 +164,14 @@ def parse_month_year(s):
 def all_dates(text):
     out = []
     for m in DATE_RE.finditer(text):
-        out.append(date(int(m.group(3)), MONTHS[m.group(2).lower()],
-                        int(m.group(1))))
+        d = _mkdate(int(m.group(3)), MONTHS[m.group(2).lower()],
+                    int(m.group(1)))
+        if d:
+            out.append(d)
     for m in ISO_DATE_RE.finditer(text):
-        out.append(date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+        d = _mkdate(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        if d:
+            out.append(d)
     return out
 
 
@@ -109,7 +179,7 @@ def norm_name(name):
     """Normalise a party name for comparison."""
     if not name:
         return ""
-    n = name.lower()
+    n = str(name).lower()
     n = re.sub(r"[.,'&()/\-]", " ", n)
     n = re.sub(r"\s+", " ", n).strip()
     return n
@@ -759,51 +829,227 @@ class Doc:
 # --------------------------------------------------------------------------
 
 def load_jsonl(path):
+    """Read a .jsonl file tolerantly.
+
+    Non-UTF8 bytes are replaced, a leading BOM and CRLF endings are
+    ignored, blank lines are skipped, and any line that is not a JSON
+    object is skipped with a stderr note. Missing/unreadable files yield
+    an empty list rather than an exception.
+    """
     rows = []
-    with open(path, "rb") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
+    base = os.path.basename(path)
+    try:
+        f = open(path, "rb")
+    except OSError as e:
+        warn(f"{base}: cannot read ({e}); treating as empty")
+        return rows
+    with f:
+        for i, raw in enumerate(f, 1):
+            line = raw.decode("utf-8", "replace").lstrip("\ufeff").strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except ValueError:
+                warn(f"{base}:{i}: malformed line skipped")
+                continue
+            if not isinstance(d, dict):
+                warn(f"{base}:{i}: non-object line skipped")
+                continue
+            rows.append(d)
     return rows
+
+
+def _norm_case(c):
+    if not isinstance(c.get("case_id"), str) or not c["case_id"]:
+        return None
+    n = dict(c)
+    n["case_id"] = _s(c["case_id"])
+    n["customer_id"] = _s(c.get("customer_id"))
+    n["alert_ids"] = _strlist(c.get("alert_ids"))
+    rw = _sdict(c.get("review_window"))
+    n["review_window"] = {"from": _s(rw.get("from")),
+                          "to": _s(rw.get("to"))}
+    n["held_payment_id"] = _sopt(c.get("held_payment_id"))
+    return n
+
+
+def _norm_alert(a):
+    if not isinstance(a.get("alert_id"), str) or not a["alert_id"]:
+        return None
+    n = dict(a)
+    n["alert_id"] = _s(a["alert_id"])
+    n["rule_id"] = _s(a.get("rule_id"))
+    n["rule_name"] = _s(a.get("rule_name"))
+    n["message"] = _s(a.get("message"))
+    n["transaction_ids"] = _strlist(a.get("transaction_ids"))
+    n["measured"] = _sdict(a.get("measured"))
+    return n
+
+
+def _norm_customer(c):
+    if not isinstance(c.get("customer_id"), str) or not c["customer_id"]:
+        return None
+    n = dict(c)
+    n["customer_id"] = _s(c["customer_id"])
+    n["name"] = _s(c.get("name"))
+    n["kind"] = _s(c.get("kind"), "individual") or "individual"
+    n["employer"] = _sopt(c.get("employer"))
+    n["occupation"] = _sopt(c.get("occupation"))
+    n["business_activity"] = _sopt(c.get("business_activity"))
+    n["declared"] = _sdict(c.get("declared"))
+    return n
+
+
+def _norm_txn(t):
+    if not isinstance(t.get("transaction_id"), str) or \
+            not t["transaction_id"]:
+        return None
+    n = dict(t)
+    n["transaction_id"] = _s(t["transaction_id"])
+    n["customer_id"] = _s(t.get("customer_id"))
+    n["direction"] = _s(t.get("direction")).lower()
+    n["channel"] = _s(t.get("channel"))
+    n["amount_gbp"] = _num(t.get("amount_gbp"))
+    n["booked_at"] = _s(t.get("booked_at"))
+    n["counterparty_name"] = _sopt(t.get("counterparty_name"))
+    n["counterparty_account"] = _sopt(t.get("counterparty_account"))
+    n["counterparty_country"] = _sopt(t.get("counterparty_country"))
+    n["reference"] = _sopt(t.get("reference"))
+    return n
+
+
+def _norm_evidence_meta(m):
+    if not isinstance(m.get("doc_id"), str) or not m["doc_id"]:
+        return None
+    n = dict(m)
+    n["doc_id"] = _s(m["doc_id"])
+    n["customer_id"] = _s(m.get("customer_id"))
+    n["file"] = _s(m.get("file"))
+    n["type"] = _s(m.get("type"))
+    n["title"] = _s(m.get("title"))
+    n["dated"] = _s(m.get("dated"))
+    return n
+
+
+def _norm_review(r):
+    n = dict(r)
+    n["review_id"] = _s(r.get("review_id"))
+    n["customer_id"] = _s(r.get("customer_id"))
+    n["verdict"] = _s(r.get("verdict"))
+    n["note"] = _s(r.get("note"))
+    return n
+
+
+def _norm_entry(e):
+    if not isinstance(e.get("entry_id"), str) or not e["entry_id"]:
+        return None
+    n = dict(e)
+    n["entry_id"] = _s(e["entry_id"])
+    n["name"] = _s(e.get("name"))
+    n["kind"] = _s(e.get("kind"))
+    n["date_of_birth"] = _sopt(e.get("date_of_birth"))
+    return n
+
+
+# Phrases in POLICY.md that mark the payments/FX-style SOP where an alert
+# on an outgoing payment holds it until a decision is made.
+HELD_PAYMENT_RE = re.compile(
+    r"holds?\s+(?:that|the)\s+payment|"
+    r"until\s+a\s+decision\s+is\s+made|"
+    r"held\s+(?:outgoing\s+)?payment\s+is\s+released|"
+    r"held\s+outgoing\s+payment|"
+    r"before\s+(?:it\s+is|they\s+are)\s+released", re.I)
 
 
 class Institution:
     def __init__(self, folder):
         self.folder = folder
-        self.name = os.path.basename(os.path.normpath(folder))
+        self.name = os.path.basename(
+            os.path.normpath(folder)) or "institution"
         h = hashlib.sha256()
-        self.cases = load_jsonl(self._f("cases.jsonl", h))
-        self.alerts = {a["alert_id"]: a
-                       for a in load_jsonl(self._f("alerts.jsonl", h))}
-        self.customers = {c["customer_id"]: c
-                          for c in load_jsonl(self._f("customers.jsonl", h))}
-        self.transactions = {t["transaction_id"]: t
-                             for t in load_jsonl(
-                                 self._f("transactions.jsonl", h))}
+        self.cases = []
+        seen_cases = set()
+        for c in load_jsonl(self._f("cases.jsonl", h)):
+            n = _norm_case(c)
+            if n is None:
+                warn("cases.jsonl: row without case_id skipped")
+                continue
+            if n["case_id"] in seen_cases:
+                warn(f"cases.jsonl: duplicate case {n['case_id']} "
+                     "skipped")
+                continue
+            seen_cases.add(n["case_id"])
+            self.cases.append(n)
+        self.alerts = {}
+        for a in load_jsonl(self._f("alerts.jsonl", h)):
+            n = _norm_alert(a)
+            if n is None:
+                warn("alerts.jsonl: row without alert_id skipped")
+                continue
+            self.alerts.setdefault(n["alert_id"], n)
+        self.customers = {}
+        for c in load_jsonl(self._f("customers.jsonl", h)):
+            n = _norm_customer(c)
+            if n is None:
+                warn("customers.jsonl: row without customer_id skipped")
+                continue
+            self.customers.setdefault(n["customer_id"], n)
+        self.transactions = {}
+        for t in load_jsonl(self._f("transactions.jsonl", h)):
+            n = _norm_txn(t)
+            if n is None:
+                warn("transactions.jsonl: row without transaction_id "
+                     "skipped")
+                continue
+            self.transactions.setdefault(n["transaction_id"], n)
         self.prev_reviews = {}
         for r in load_jsonl(self._f("previous_reviews.jsonl", h)):
-            self.prev_reviews.setdefault(r["customer_id"], []).append(r)
-        self.internal_list = {e["entry_id"]: e
-                              for e in load_jsonl(
-                                  self._f("internal_list.jsonl", h))}
+            n = _norm_review(r)
+            if not n["customer_id"] or not n["review_id"]:
+                warn("previous_reviews.jsonl: row without "
+                     "customer_id/review_id skipped")
+                continue
+            self.prev_reviews.setdefault(n["customer_id"], []).append(n)
+        self.internal_list = {}
+        for e in load_jsonl(self._f("internal_list.jsonl", h)):
+            n = _norm_entry(e)
+            if n is None:
+                warn("internal_list.jsonl: row without entry_id skipped")
+                continue
+            self.internal_list.setdefault(n["entry_id"], n)
         # evidence: metadata + parsed text
         self.evidence_meta = {}
         self.docs = {}  # customer_id -> [Doc]
-        ev_dir = os.path.join(folder, "evidence")
         for meta in load_jsonl(self._f("evidence.jsonl", h)):
-            self.evidence_meta[meta["doc_id"]] = meta
-            path = os.path.join(folder, meta["file"])
+            n = _norm_evidence_meta(meta)
+            if n is None:
+                warn("evidence.jsonl: row without doc_id skipped")
+                continue
+            self.evidence_meta[n["doc_id"]] = n
+            raw = self._read_doc(n)
+            if raw is not None:
+                h.update(raw)
+            text = raw.decode("utf-8", "replace") if raw else ""
             try:
-                with open(path, encoding="utf-8") as f:
-                    text = f.read()
-                    h.update(text.encode("utf-8"))
-            except OSError:
-                text = ""
-            doc = Doc(meta, text)
-            self.docs.setdefault(meta["customer_id"], []).append(doc)
+                doc = Doc(n, text)
+            except Exception as e:
+                warn(f"{n['doc_id']}: evidence parse failed ({e}); "
+                     "document ignored")
+                continue
+            if n["customer_id"]:
+                self.docs.setdefault(n["customer_id"], []).append(doc)
         for cid in self.docs:
             self.docs[cid].sort(key=lambda d: d.doc_id)
+        # POLICY.md: the profile is detected from the policy text and the
+        # data itself, never from the folder name, so that an unfamiliar
+        # institution still gets sane handling.
+        policy_raw = self._read_named("POLICY.md")
+        self.policy_text = (policy_raw.decode("utf-8", "replace")
+                            if policy_raw else "")
+        self.holds_payments = bool(
+            HELD_PAYMENT_RE.search(self.policy_text)) or \
+            any(c["held_payment_id"] for c in self.cases)
         self.input_hash = h.hexdigest()
         self.txn_by_customer = {}
         for t in self.transactions.values():
@@ -814,13 +1060,48 @@ class Institution:
 
     def _f(self, name, h):
         path = os.path.join(self.folder, name)
-        with open(path, "rb") as f:
-            while True:
-                chunk = f.read(1 << 20)
-                if not chunk:
-                    break
-                h.update(chunk)
+        try:
+            with open(path, "rb") as f:
+                while True:
+                    chunk = f.read(1 << 20)
+                    if not chunk:
+                        break
+                    h.update(chunk)
+        except OSError as e:
+            warn(f"{name}: cannot read ({e}); treating as missing")
         return path
+
+    def _read_named(self, name):
+        try:
+            with open(os.path.join(self.folder, name), "rb") as f:
+                return f.read()
+        except OSError:
+            return None
+
+    def _doc_path(self, meta):
+        """Best-effort path for an evidence document, confined to the
+        institution folder."""
+        f = meta["file"]
+        cands = []
+        if f and not os.path.isabs(f) and \
+                ".." not in re.split(r"[/\\]", f):
+            cands.append(os.path.join(self.folder, f))
+        base = os.path.basename(f) if f else ""
+        if base:
+            cands.append(os.path.join(self.folder, "evidence", base))
+        cands.append(os.path.join(self.folder, "evidence",
+                                  meta["doc_id"] + ".md"))
+        for p in cands:
+            if os.path.isfile(p):
+                return p
+        return cands[0]
+
+    def _read_doc(self, meta):
+        try:
+            with open(self._doc_path(meta), "rb") as f:
+                return f.read()
+        except OSError:
+            return None
 
 
 # --------------------------------------------------------------------------
@@ -859,12 +1140,12 @@ class Gap:
 
 
 def amt(x):
-    return f"£{x:,.2f}"
+    return f"£{_num(x):,.2f}"
 
 
 def dstr(d):
     if isinstance(d, date):
-        return d.strftime("%-d %B %Y")
+        return f"{d.day} {MONTH_NAMES[d.month - 1]} {d.year}"
     return str(d)
 
 
@@ -873,7 +1154,12 @@ class CaseCtx:
                  list_override=None):
         self.inst = inst
         self.case = case
-        self.cust = inst.customers[case["customer_id"]]
+        self.cust = inst.customers.get(case["customer_id"])
+        if self.cust is None:
+            warn(f"{case['case_id']}: customer {case['customer_id']} "
+                 "not found; using empty profile")
+            self.cust = {"customer_id": case["customer_id"], "name": "",
+                         "kind": "individual", "declared": {}}
         docs = inst.docs.get(case["customer_id"], [])
         self.docs = [d for d in docs if d.doc_id not in drop_docs]
         self.docs += list(synth_docs)
@@ -931,11 +1217,10 @@ class CaseCtx:
                     yield d, c
 
     def declared_baseline(self):
-        dec = self.cust.get("declared", {})
+        dec = _sdict(self.cust.get("declared"))
         if self.cust["kind"] == "business":
-            turnover = dec.get("annual_turnover_gbp") or 0
-            return turnover / 12.0
-        return dec.get("monthly_income_gbp") or 0
+            return _num(dec.get("annual_turnover_gbp")) / 12.0
+        return _num(dec.get("monthly_income_gbp"))
 
     def cust_last(self):
         return person_surname(self.cust["name"])
@@ -956,10 +1241,10 @@ class CaseCtx:
                         if c.get("amount") is not None and \
                                 abs(t["amount_gbp"] - c["amount"]) > 1.0:
                             continue
-                        if c.get("date") and \
-                                abs((date.fromisoformat(
-                                    t["booked_at"][:10]) - c["date"])
-                                    .days) > 5:
+                        txd = isodate(t["booked_at"])
+                        if c.get("date") and (txd is None or
+                                              abs((txd - c["date"])
+                                                  .days) > 5):
                             continue
                         if not same_person(c["sender"],
                                            t["counterparty_name"] or ""):
@@ -1012,9 +1297,9 @@ class CaseCtx:
                 if c.get("dissolved") and c.get("company") and \
                         same_party(c["company"], cp):
                     dis = c["dissolved"]
-                    txd = date.fromisoformat(t["booked_at"][:10])
+                    txd = isodate(t["booked_at"])
                     if dis is True or (isinstance(dis, date) and
-                                       txd > dis):
+                                       txd is not None and txd > dis):
                         self.suspicion.append((
                             "ESC_UNEXPLAINED_FUNDS",
                             f"{d.doc_id} shows {c['company']} was "
@@ -1035,20 +1320,20 @@ class CaseCtx:
                         "matched_party", ""),
                     "cp": "", "evidence": [alert["measured"].get(
                         "list_entry")]}
-        m = alert["measured"]
-        entry = self.inst.internal_list.get(m["list_entry"], {})
-        entry_id = m["list_entry"]
-        matched_on = m.get("matched_on", "")
-        matched_party = m.get("matched_party", "")
+        m = _sdict(alert.get("measured"))
+        entry_id = _sopt(m.get("list_entry"))
+        entry = self.inst.internal_list.get(entry_id, {})
+        matched_on = _s(m.get("matched_on"))
+        matched_party = _s(m.get("matched_party"))
         txns = self.txns_of_alert(alert)
         txn = txns[0] if txns else None
         cp_name = txn["counterparty_name"] if txn else matched_party
-        txn_date = (date.fromisoformat(txn["booked_at"][:10])
-                    if txn else None)
+        txn_date = isodate(txn["booked_at"]) if txn else None
         res = {"result": "unsettled", "entry": entry_id,
                "matched_on": matched_on, "matched_party": matched_party,
-               "cp": cp_name, "evidence": [entry_id]}
-        entry_dob = entry.get("date_of_birth")
+               "cp": cp_name,
+               "evidence": [entry_id] if entry_id else []}
+        entry_dob = _sopt(entry.get("date_of_birth"))
         entry_ym = entry_dob[:7] if entry_dob else None
 
         # Docs that can settle identity: docs naming the matched party with
@@ -1242,7 +1527,7 @@ class CaseCtx:
         ch = t["channel"]
         cp = t["counterparty_name"]
         amt_g = t["amount_gbp"]
-        txd = date.fromisoformat(t["booked_at"][:10])
+        txd = isodate(t["booked_at"])
         cust = self.cust
 
         if t["direction"] == "in":
@@ -1384,9 +1669,9 @@ class CaseCtx:
         # account only when a document proves they hold it. For the
         # payments firm, inbound funding in the client's own name is the
         # declared funding channel, not an unexplained transfer.
-        if self.inst.name == "payments_fx" and direction == "in":
-            chans = " ".join(self.cust.get("declared", {})
-                             .get("expected_channels") or [])
+        if self.inst.holds_payments and direction == "in":
+            chans = " ".join(_strlist(_sdict(
+                self.cust.get("declared")).get("expected_channels")))
             if "own" in chans.lower():
                 return Coverage(True, "WITHIN_PROFILE", (),
                                 "funding from an account in the "
@@ -1402,13 +1687,14 @@ class CaseCtx:
                         "proving the other account is the customer's")
 
     def match_cash(self, t):
-        txd = date.fromisoformat(t["booked_at"][:10])
+        txd = isodate(t["booked_at"])
         for d, c in self.all_claims("cash_banking"):
             for row in c["rows"]:
                 if abs(row["amount"] - t["amount_gbp"]) <= max(
                         1.0, row["amount"] * 0.02):
                     if row["date"] is None or \
-                            -2 <= (txd - row["date"]).days <= 4:
+                            (txd is not None and
+                             -2 <= (txd - row["date"]).days <= 4):
                         return Coverage(
                             True, "BUSINESS_RECORDS_RECONCILE",
                             (d.doc_id,),
@@ -1420,15 +1706,17 @@ class CaseCtx:
     def match_redeposit(self, t):
         """Cash put back in after the customer's own earlier withdrawal
         of the same amount (often documented in contact notes)."""
-        txd = date.fromisoformat(t["booked_at"][:10])
+        txd = isodate(t["booked_at"])
+        if txd is None:
+            return None
         for x in self.txns.values():
             if x["channel"] != "cash_withdrawal" or \
                     x["booked_at"] >= t["booked_at"]:
                 continue
             if abs(x["amount_gbp"] - t["amount_gbp"]) <= max(
                     1.0, t["amount_gbp"] * 0.01):
-                if (txd - date.fromisoformat(
-                        x["booked_at"][:10])).days <= 365:
+                xdate = isodate(x["booked_at"])
+                if xdate is not None and (txd - xdate).days <= 365:
                     ev = [x["transaction_id"]]
                     why = (f"same {amt(t['amount_gbp'])} was withdrawn "
                            f"on {x['booked_at'][:10]}")
@@ -1606,9 +1894,10 @@ class CaseCtx:
         """A counterparty the business has paid at least three times
         before this transaction, in a country it declared."""
         cp = t["counterparty_name"]
-        country = t.get("country")
-        declared = self.cust.get("declared", {}).get(
-            "expected_countries") or []
+        country = _sopt(t.get("country")) or \
+            _sopt(t.get("counterparty_country"))
+        declared = _strlist(_sdict(self.cust.get("declared")).get(
+            "expected_countries"))
         if country and declared and \
                 not any(c.lower() in country.lower()
                         or country.lower() in c.lower()
@@ -1624,7 +1913,7 @@ class CaseCtx:
 
     def match_payable(self, t):
         cp = t["counterparty_name"]
-        txd = date.fromisoformat(t["booked_at"][:10])
+        txd = isodate(t["booked_at"])
         ref = (t.get("reference") or "").upper()
         best = None
         for d, c in self.all_claims("payable"):
@@ -1650,10 +1939,7 @@ class CaseCtx:
                 why = "instalment under documented total"
             if ok and c.get("due_date"):
                 dd = c["due_date"]
-                if abs((txd - dd).days) <= 14:
-                    ok = True
-                else:
-                    ok = False
+                ok = txd is not None and abs((txd - dd).days) <= 14
             if ok:
                 cov = Coverage(True, "INVOICE_MATCHES", (d.doc_id,),
                                f"{d.doc_id} ({c.get('text')}) covers "
@@ -1734,10 +2020,28 @@ class CaseCtx:
                 self.alert_cov[aid] = True
                 continue
             ts = self.txns_of_alert(a)
+            missing = [tid for tid in a["transaction_ids"]
+                       if tid not in self.txns]
             uncovered = [t for t in ts
                          if not self.coverage.get(
                              t["transaction_id"], Coverage()).covered]
             un_amt = sum(t["amount_gbp"] for t in uncovered)
+            if missing or not ts:
+                # activity the alert fired on cannot be verified from the
+                # data on file: never treated as explained
+                self.alert_cov[aid] = False
+                if missing:
+                    detail = (f"{len(missing)} of "
+                              f"{len(a['transaction_ids'])} alerted "
+                              "transactions are absent from the "
+                              "transaction data")
+                else:
+                    detail = ("the alert names no transactions that can "
+                              "be assessed")
+                self.gaps.append(Gap(
+                    "generic", un_amt, detail, "RFI_PURPOSE_DOCUMENTS",
+                    "ESC_UNEXPLAINED_FUNDS", a))
+                continue
             total = sum(t["amount_gbp"] for t in ts) or 1.0
             material = (not uncovered) or \
                 (un_amt <= max(100.0, total * 0.03)
@@ -1747,9 +2051,22 @@ class CaseCtx:
             if not material:
                 self.classify_gap(a, uncovered)
 
-        # held payment rule (payments_fx)
-        if self.inst.name == "payments_fx" and self.held_txn:
-            self.held_payment_check()
+        # held payment rule: applies whenever a case holds a payment,
+        # however the institution folder is named
+        if self.case.get("held_payment_id"):
+            if self.held_txn is None:
+                self.gaps.append(Gap(
+                    "held_invoice", 0.0,
+                    "the held payment is absent from the transaction "
+                    "data", "RFI_PURPOSE_DOCUMENTS",
+                    "ESC_UNEXPLAINED_FUNDS"))
+            else:
+                self.held_payment_check()
+        if not self.alerts and not self.gaps:
+            self.gaps.append(Gap(
+                "generic", 0.0,
+                "no readable alert data exists for this case",
+                "RFI_PURPOSE_DOCUMENTS", "ESC_UNEXPLAINED_FUNDS"))
 
         return self.decide()
 
@@ -1917,21 +2234,23 @@ class CaseCtx:
             own_amt = sum(
                 self.txns[tid]["amount_gbp"]
                 for tid, cov in self.coverage.items()
-                if cov.covered and cov.kind == "own_account")
+                if cov.covered and cov.kind == "own_account"
+                and tid in self.txns)
             total_amt = sum(self.txns[tid]["amount_gbp"]
                             for tid in self.coverage if tid in self.txns)
             base = self.declared_baseline() or 1.0
             multiple = 0.0
             for a in self.alerts:
-                m = a["measured"]
+                m = _sdict(a.get("measured"))
                 if "multiple" in m:
-                    multiple = max(multiple, m["multiple"])
+                    multiple = max(multiple, _num(m["multiple"]))
                 elif a["rule_id"] == "TM07" and "moved_gbp" in m:
-                    multiple = max(multiple, m["moved_gbp"] / base)
+                    multiple = max(multiple, _num(m["moved_gbp"]) / base)
                 elif a["rule_id"] == "TM02" and "received_gbp" in m:
-                    multiple = max(multiple, m["received_gbp"] / base)
+                    multiple = max(multiple,
+                                   _num(m["received_gbp"]) / base)
                 elif a["rule_id"] == "TM05" and "amount_gbp" in m:
-                    multiple = max(multiple, m["amount_gbp"] / base)
+                    multiple = max(multiple, _num(m["amount_gbp"]) / base)
             if own_amt and own_amt >= total_amt * 0.5 \
                     and multiple >= 5.0:
                 ev = sorted({d for cov in self.coverage.values()
@@ -1966,7 +2285,9 @@ class CaseCtx:
             return self.finish("ESCALATE", code,
                                self.esc_reason(code, detail, ev), ev)
 
-        gap = self.dominant_gap()
+        gap = self.dominant_gap() if self.gaps else Gap(
+            "generic", 0.0, "the alerted activity is unexplained",
+            "RFI_PURPOSE_DOCUMENTS", "ESC_UNEXPLAINED_FUNDS")
         code = gap.rfi_code
         self.check("Verdicts",
                    "Would one document or answer settle the case?",
@@ -1983,13 +2304,14 @@ class CaseCtx:
                  "ESC_THIRD_PARTY_FUNDING", "ESC_PASS_THROUGH",
                  "ESC_UNEXPLAINED_FUNDS", "UNWILLING", "CONTRADICTORY"]
         best = None
+        bi = 99
         for s in suspicion:
             code = s[0]
             if code in ("UNWILLING", "CONTRADICTORY"):
                 continue
             i = order.index(code) if code in order else 99
-            if best is None or i < order.index(best[0]):
-                best = s
+            if best is None or i < bi:
+                best, bi = s, i
         if best is None:
             s = suspicion[0]
             rules = {a["rule_id"] for a in self.alerts}
@@ -2010,7 +2332,7 @@ class CaseCtx:
             if not cov.covered or not cov.code:
                 continue
             score[cov.code] = score.get(cov.code, 0) + \
-                self.txns[tid]["amount_gbp"]
+                self.txns.get(tid, {}).get("amount_gbp", 0.0)
             ids.setdefault(cov.code, set()).update(cov.doc_ids)
             ids[cov.code].add(tid)
         if any(r["result"] == "different" for r in self.tm22.values()):
@@ -2022,7 +2344,7 @@ class CaseCtx:
                 ev.update(cov.doc_ids)
                 if cov.kind != "routine":
                     ev.add(tid)
-            return code, sorted(ev)
+            return code, sorted(x for x in ev if isinstance(x, str))
         if not score:
             return "WITHIN_PROFILE", []
         pref = ["COLLECTION_DOCUMENTED", "BUSINESS_RECORDS_RECONCILE",
@@ -2044,7 +2366,7 @@ class CaseCtx:
         for tid, cov in self.coverage.items():
             if cov.covered and cov.kind not in ("routine", "minor"):
                 ev.add(tid)
-        return code, sorted(ev)
+        return code, sorted(x for x in ev if isinstance(x, str))
 
     def choose_gap_verdict(self):
         """Decide whether an unexplained gap is itself suspicious."""
@@ -2152,14 +2474,14 @@ class CaseCtx:
         ev = list(self.alert_txn_ids(gap))
         for tid, cov in self.coverage.items():
             ev.extend(cov.doc_ids)
-        return sorted(set(ev))
+        return sorted(x for x in set(ev) if isinstance(x, str))
 
     # -- reasons ---------------------------------------------------------
 
     def esc_reason(self, code, detail, ev):
         parts = [detail[0].upper() + detail[1:] + "."]
-        cov_docs = sorted({d for cov in self.coverage.values()
-                           for d in cov.doc_ids})
+        cov_docs = sorted(d for cov in self.coverage.values()
+                          for d in cov.doc_ids if isinstance(d, str))
         extra = []
         for s in self.suspicion:
             if s[1] != detail and s[0] not in ("UNWILLING",
@@ -2413,27 +2735,101 @@ def compute_flip(ctx, result):
 # main
 # --------------------------------------------------------------------------
 
+def fallback_line(inst, case):
+    """A safe verdict emitted when a case cannot be processed. Never a
+    CLOSE: the activity is unverified, so it goes to the MLRO."""
+    ev = []
+    for a in getattr(inst, "alerts", {}).values():
+        if a["alert_id"] in (case.get("alert_ids") or []):
+            for tid in a["transaction_ids"]:
+                if tid in inst.transactions and tid not in ev:
+                    ev.append(tid)
+    hp = case.get("held_payment_id")
+    if hp and hp in inst.transactions and hp not in ev:
+        ev.append(hp)
+    return {
+        "case_id": case["case_id"],
+        "alert_ids": list(case.get("alert_ids") or []),
+        "verdict": "ESCALATE",
+        "reason_code": "ESC_UNEXPLAINED_FUNDS",
+        "reason": "The case data could not be processed completely, so "
+                  "the alerted activity is unverified. Escalating to "
+                  "the MLRO for manual review.",
+        "evidence": ev,
+    }
+
+
+def _safe_filename(name):
+    n = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._")
+    return n or "institution"
+
+
 def main():
     if len(sys.argv) != 3:
         sys.stderr.write("usage: run <institution folder> <output file>\n")
         sys.exit(2)
     folder, outfile = sys.argv[1], sys.argv[2]
-    inst = Institution(folder)
     outdir = os.path.dirname(os.path.abspath(outfile))
-    os.makedirs(outdir, exist_ok=True)
-    traces_dir = os.path.join(outdir, "traces")
-    os.makedirs(traces_dir, exist_ok=True)
-    trace_path = os.path.join(traces_dir, inst.name + ".jsonl")
-
-    with open(outfile, "w") as out, open(trace_path, "w") as tr:
+    try:
+        os.makedirs(outdir, exist_ok=True)
+    except OSError as e:
+        sys.stderr.write(f"engine: cannot create output dir {outdir}: "
+                         f"{e}\n")
+        sys.exit(1)
+    try:
+        inst = Institution(folder)
+    except Exception as e:
+        warn(f"could not load institution folder {folder}: {e}")
+        try:
+            open(outfile, "w").close()
+        except OSError:
+            sys.exit(1)
+        return
+    # the trace file is auxiliary for the demo UI; the official output
+    # must be written even when traces cannot be
+    tr = None
+    try:
+        traces_dir = os.path.join(outdir, "traces")
+        os.makedirs(traces_dir, exist_ok=True)
+        tr = open(os.path.join(
+            traces_dir, _safe_filename(inst.name) + ".jsonl"),
+            "w", encoding="utf-8", newline="\n")
+    except OSError as e:
+        warn(f"trace file unavailable ({e}); continuing without it")
+    try:
+        out = open(outfile, "w", encoding="utf-8", newline="\n")
+    except OSError as e:
+        sys.stderr.write(f"engine: cannot write {outfile}: {e}\n")
+        if tr:
+            tr.close()
+        sys.exit(1)
+    with out:
         for case in inst.cases:
-            ctx = CaseCtx(inst, case)
-            res = ctx.run()
-            flip = compute_flip(ctx, res)
-            trace = res.pop("_trace")
-            trace["flip"] = flip
+            trace = None
+            try:
+                ctx = CaseCtx(inst, case)
+                res = ctx.run()
+                trace = res.pop("_trace")
+                try:
+                    trace["flip"] = compute_flip(ctx, res)
+                except Exception as e:
+                    warn(f"{case['case_id']}: flip analysis failed "
+                         f"({e})")
+                    trace["flip"] = None
+            except Exception as e:
+                warn(f"{case['case_id']}: {e}; safe verdict emitted")
+                res = fallback_line(inst, case)
             out.write(json.dumps(res, ensure_ascii=False) + "\n")
-            tr.write(json.dumps(trace, ensure_ascii=False) + "\n")
+            if tr is not None and trace is not None:
+                try:
+                    tr.write(json.dumps(trace, ensure_ascii=False)
+                             + "\n")
+                except OSError:
+                    warn("trace write failed; continuing")
+                    tr.close()
+                    tr = None
+    if tr is not None:
+        tr.close()
 
 
 if __name__ == "__main__":
