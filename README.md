@@ -1,5 +1,147 @@
 # ClauseProof
-Transaction-monitoring alert triage for the Grok Bot London Financial Crime Hackathon (Track 1, designed by Diligent).
-- `system/run <institution folder> <output.jsonl>`: deterministic policy-as-code engine (Python).
-- `web/`: Next.js case board for the demo.
-- `institutions/` is a local symlink to the dataset (not committed).
+
+Transaction-monitoring alert triage, built for the London Financial Crime
+Hackathon (Track 1). ClauseProof reads one institution's alerts, customer
+profiles, transactions, evidence documents, earlier reviews and internal
+list — and decides for every case: **CLOSE**, **RFI** (ask the customer for
+one specific thing) or **ESCALATE** to the MLRO — with a `reason_code`, a
+2–4 sentence reason naming the exact facts relied on, and the evidence IDs.
+
+## Why it is different
+
+- **Deterministic policy-as-code.** The engine is pure Python 3 stdlib — no
+  LLM, no randomness, no clock, sorted iteration everywhere. Five runs of 800
+  unseen cases produce byte-identical output; `system/check_repro.sh` proves
+  it 5× per institution, and the app re-proves it live.
+- **Explain-every-pound coverage.** For every alerted transaction the engine
+  emits a coverage row: which document explains it (amount + payee + date
+  matching), or exactly why it is unexplained. A case can only CLOSE when
+  every pound is covered.
+- **Policy-quoted decision path.** Each verdict carries an ordered list of
+  checks — each one a quoted clause of that institution's `POLICY.md` with a
+  PASS / FAIL / UNKNOWN result — so an analyst can audit the reasoning, not
+  just the answer.
+- **Counterfactual "flip" card.** For every case the engine re-runs the
+  decision with one fact toggled (a document removed, a document added, a
+  list match resolved) and reports what would change the verdict.
+- **Beat the Analyst.** A live game: visitors invent a laundering scheme on
+  their phone (`/play`), the real engine decides it against the real policy,
+  and the big screen (`/stage`) shows the decision live. The scoreboard keeps
+  CAUGHT / QUESTIONED / GOT AWAY.
+
+## Quick start — one command
+
+```bash
+./start.sh          # checks deps → engine outputs → import → build → serve
+./start.sh --tunnel # also opens a public tunnel for remote phones
+```
+
+Then open **http://localhost:3000**. The script prints the LAN URL for
+`/play` (phones) and `/stage` (the big screen). It needs macOS/Linux with
+`python3` and Node 18+; it reuses the engine output when the institution
+inputs are unchanged (`input_hash` is verified, not assumed) and degrades
+gracefully offline.
+
+Smoke test the running app end to end:
+
+```bash
+./scripts/smoke.sh  # 18 checks: pages, queues, APIs, live 5× proof, 4 plays
+```
+
+## The engine
+
+```bash
+system/run <institution folder> <output file>
+# e.g.
+system/run institutions/bank output/bank.jsonl
+```
+
+Reads `cases.jsonl`, `alerts.jsonl`, `customers.jsonl`,
+`transactions.jsonl`, `evidence.jsonl` + `evidence/*.md`,
+`previous_reviews.jsonl`, `internal_list.jsonl` and `POLICY.md`; writes one
+official JSON line per case, plus `output/traces/<inst>.jsonl` (coverage,
+checks, flip, risk context, engine version, input hash) for the demo UI.
+~20s per 1,000-case institution on a laptop. Details:
+[`system/README.md`](system/README.md).
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph data ["institutions/&lt;inst&gt;/"]
+        A["cases · alerts · customers · transactions<br/>evidence/*.md · previous reviews · list · POLICY.md"]
+    end
+    A --> E["system/engine.py — policy-as-code<br/>pure stdlib, deterministic"]
+    E -->|"verdict + reason + evidence"| O["output/&lt;inst&gt;.jsonl"]
+    E -->|"coverage · checks · flip · input_hash"| T["output/traces/&lt;inst&gt;.jsonl"]
+    T --> I["web/scripts/import-traces.mjs"]
+    O -->|"5× byte-diff"| R["system/check_repro.sh<br/>→ output/repro.json"]
+    I --> D["web/public/data/*.json"]
+    D --> W["Next.js :3000 — / queue<br/>/case/id · /stage · /play"]
+    subgraph live ["live APIs"]
+        P1["/api/proof-run → run 5×<br/>sha256 each output"]
+        P2["/api/play → run once on<br/>synthetic player case"]
+        P3["/api/osint → context only<br/>graceful offline"]
+    end
+    A --> P1
+    P2 -.-> E
+    W --> P1
+    W --> P2
+    W --> P3
+```
+
+- `/` — the triage queue: all 4,000 development cases across the four
+  institutions, verdict pills, search, keyboard nav, curated demo picks.
+- `/case/<id>` — the case board: money-flow graph (green = covered edge,
+  pulsing = unexplained, `?` = held payment), customer card, the quoted
+  decision path, evidence chips that open the real document, and the flip
+  card.
+- `/stage` + `/play` — Beat the Analyst: QR on the big screen, synthetic
+  cases on phones, real engine verdicts live with leaderboard.
+- `POST /api/proof-run` — runs `system/run` 5× into a temp dir and streams
+  the SHA-256 of each official output.
+
+## Proof
+
+Real measured numbers — validate, 5× byte-identical repro, smoke results,
+verdict split, and our own blind-label accuracy (clearly labelled as ours,
+not the official key): **[docs/proof.md](docs/proof.md)**. Blind-eval detail:
+[docs/eval_blind.md](docs/eval_blind.md). Live-demo click path:
+[docs/DEMO_RUNBOOK.md](docs/DEMO_RUNBOOK.md).
+
+## Screens
+
+| queue | case: close | case: escalate |
+|---|---|---|
+| ![queue](docs/screens/queue-bank.png) | ![close](docs/screens/case-close.png) | ![escalate](docs/screens/case-escalate.png) |
+
+| live 5× proof | beat the analyst | stage |
+|---|---|---|
+| ![proof](docs/screens/proof-5x.png) | ![play](docs/screens/game-play.png) | ![stage](docs/screens/game-stage.png) |
+
+## Repo layout
+
+```
+start.sh               one-command demo (deps → engine → import → build → serve)
+scripts/smoke.sh       18-check end-to-end smoke against the running app
+system/                engine: run, engine.py, validate.py, check_repro.sh
+output/                <inst>.jsonl (engine output) + traces/ + repro.json
+web/                   Next.js 15 demo UI (queue, case board, play, stage)
+docs/                  proof.md, eval_blind.md, DEMO_RUNBOOK.md, screens/
+institutions/          symlink to the dataset — NOT committed
+```
+
+## Limitations — stated honestly
+
+- The engine reads evidence as structured text; documents whose wording sits
+  outside its grammar may be under-recognised, which shows up as an extra
+  RFI/ESCALATE rather than a wrong CLOSE (the costly direction).
+- Our accuracy figures come from 100 self-written labels
+  (`docs/labels_blind.jsonl`), not the official key — see
+  `docs/eval_blind.md` for the three residual disagreements.
+- The web UI is a demo console over the development cases; it is not part of
+  the scored artefact. `/api/osint` is optional live context (Tavily key);
+  offline it reports "not configured" and never influences a verdict.
+- `start.sh` targets macOS/Linux; the `--tunnel` flag needs cloudflared or
+  localtunnel reachable via PATH or npx, and skips itself cleanly when the
+  machine is offline.

@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-11-21T12:53:47.173Z",
+ "generated_at": "2026-11-21T13:49:51.289Z",
  "fixture": false,
- "trace_source": "regenerated",
+ "trace_source": "output/traces",
  "institutions": [
   {
    "id": "bank",
@@ -40,6 +40,6 @@
    }
   }
  ],
- "repro": false,
+ "repro": true,
  "total_cases": 4000
 }
