@@ -2,10 +2,12 @@
 // keeps the attempts feed (in-memory) for the stage leaderboard.
 
 import { spawn } from "node:child_process";
+import { createSocket } from "node:dgram";
 import {
   copyFileSync, existsSync, mkdirSync, mkdtempSync,
   readFileSync, realpathSync, rmSync, writeFileSync,
 } from "node:fs";
+import type { AddressInfo } from "node:net";
 import { tmpdir, networkInterfaces } from "node:os";
 import { join, resolve } from "node:path";
 import type { CoverageRow, Trace } from "./types";
@@ -298,11 +300,56 @@ export function submitPlay(
 
 /* ------------------------------ config ----------------------------------- */
 
-export function lanUrl(port: string | number): string {
+/** Source IP the OS would use for an outbound (default-route) packet —
+ * i.e. the LAN address phones on the same network can reach. A UDP
+ * "connect" only does a route lookup; nothing is sent, so it works
+ * offline too. */
+function defaultRouteIp(): Promise<string | null> {
+  return new Promise((res) => {
+    try {
+      const s = createSocket("udp4");
+      const bail = () => {
+        try {
+          s.close();
+        } catch {
+          /* closed */
+        }
+        res(null);
+      };
+      const timer = setTimeout(bail, 1500);
+      timer.unref();
+      s.on("error", bail);
+      s.connect(80, "192.0.2.1", () => {
+        clearTimeout(timer);
+        try {
+          const a = (s.address() as AddressInfo)?.address;
+          s.close();
+          res(a && a !== "0.0.0.0" ? a : null);
+        } catch {
+          res(null);
+        }
+      });
+    } catch {
+      res(null);
+    }
+  });
+}
+
+const VIRTUAL_IFACE =
+  /^(lo|bridge|utun|vmnet|vboxnet|veth|docker|gif|stf|awdl|llw|anpi|ap|ham|tun|tap|ipsec|ppp|wg)/i;
+
+export async function lanUrl(port: string | number): Promise<string> {
   const pub = process.env.PUBLIC_URL?.trim();
   if (pub) return pub.replace(/\/$/, "");
+  const viaRoute = await defaultRouteIp();
+  if (viaRoute) return `http://${viaRoute}:${port}`;
   const nets = networkInterfaces();
-  for (const name of Object.keys(nets).sort()) {
+  // physical interfaces first — virtual ones (bridge/utun/vmnet/…) are
+  // never reachable from phones on the LAN
+  const names = Object.keys(nets).sort(
+    (a, b) => Number(VIRTUAL_IFACE.test(a)) - Number(VIRTUAL_IFACE.test(b))
+  );
+  for (const name of names) {
     for (const n of nets[name] ?? []) {
       if (n.family === "IPv4" && !n.internal) {
         return `http://${n.address}:${port}`;
