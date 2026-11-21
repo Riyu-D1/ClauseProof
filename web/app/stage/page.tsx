@@ -76,7 +76,7 @@ export default function StagePage() {
   const style = latest ? BUCKET_STYLE[latest.bucket] : null;
 
   return (
-    <main className="relative z-10 flex h-screen w-screen flex-col overflow-hidden px-6 py-4">
+    <main className="relative z-10 flex h-[calc(100vh-56px)] w-screen flex-col overflow-hidden px-6 py-4">
       {/* header */}
       <header className="flex items-center justify-between border-b border-line pb-3">
         <div className="flex items-center gap-4">

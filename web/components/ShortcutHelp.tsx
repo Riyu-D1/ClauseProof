@@ -4,6 +4,16 @@ import { AnimatePresence, motion } from "framer-motion";
 
 const GROUPS: { title: string; keys: [string, string][] }[] = [
   {
+    title: "Go to",
+    keys: [
+      ["g o", "overview"],
+      ["g q", "alert queue"],
+      ["g l", "try it live"],
+      ["g s", "beat the analyst"],
+      ["g p", "proof"],
+    ],
+  },
+  {
     title: "Queue",
     keys: [
       ["j / k", "move down / up"],
@@ -16,6 +26,7 @@ const GROUPS: { title: string; keys: [string, string][] }[] = [
     title: "Case board",
     keys: [
       ["j / k", "next / previous case"],
+      ["d", "decide live — engine run now"],
       ["r", "replay decision path"],
       ["f", "toggle flip simulation"],
       ["o", "OSINT drawer"],
@@ -64,7 +75,7 @@ export default function ShortcutHelp({
                 ✕
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
               {GROUPS.map((g) => (
                 <div key={g.title}>
                   <p className="label mb-2.5" style={{ fontSize: "9.5px" }}>
