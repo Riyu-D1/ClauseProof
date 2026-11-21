@@ -119,6 +119,16 @@ export function getJob(id: string): Job | null {
   return jobs.get(id) ?? null;
 }
 
+/** DELETE /api/run/<id> — forget a finished job and wipe its temp dir now
+ *  (jobs also expire on their own after one hour). */
+export function deleteJob(id: string): boolean {
+  const j = jobs.get(id);
+  if (!j || j.status === "running" || j.status === "queued") return false;
+  jobs.delete(id);
+  rmSync(j.dir, { recursive: true, force: true });
+  return true;
+}
+
 export function createJob(opts: {
   source: Job["source"];
   label: string;

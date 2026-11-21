@@ -63,10 +63,25 @@ const ok = (cond, msg) => {
 const sh = (cmd, args) =>
   execFileSync(cmd, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
+// dev servers occasionally drop keep-alive sockets mid-upload — retry the
+// whole request (safe: nothing is created until the body is fully parsed)
+async function fetchRetry(url, opts = {}, tries = 3) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fetch(url, opts);
+    } catch (e) {
+      last = e;
+      await new Promise((r) => setTimeout(r, 500 * (i + 1)));
+    }
+  }
+  throw last;
+}
+
 async function pollJob(id) {
   const t0 = Date.now();
   for (;;) {
-    const r = await fetch(`${BASE}/api/run/${id}`, { cache: "no-store" });
+    const r = await fetchRetry(`${BASE}/api/run/${id}`, { cache: "no-store" });
     if (!r.ok) throw new Error(`status ${r.status} polling job`);
     const j = await r.json();
     if (j.status === "done" || j.status === "error") return j;
@@ -84,7 +99,7 @@ async function postZip(zipPath) {
     new Blob([readFileSync(zipPath)], { type: "application/zip" }),
     zipPath.split("/").pop()
   );
-  const r = await fetch(`${BASE}/api/run`, { method: "POST", body: fd });
+  const r = await fetchRetry(`${BASE}/api/run`, { method: "POST", body: fd });
   return { status: r.status, body: await r.json() };
 }
 
@@ -95,12 +110,14 @@ async function postFolder(dir) {
       const p = join(d, e);
       if (statSync(p).isDirectory()) walk(p);
       else if (!e.startsWith(".")) {
-        fd.append("files", new Blob([readFileSync(p)]), relative(dir, p));
+        // like a real webkitdirectory pick: paths include the top folder
+        fd.append("files", new Blob([readFileSync(p)]),
+          `${dir.split("/").pop()}/${relative(dir, p)}`);
       }
     }
   };
   walk(dir);
-  const r = await fetch(`${BASE}/api/run`, { method: "POST", body: fd });
+  const r = await fetchRetry(`${BASE}/api/run`, { method: "POST", body: fd });
   return { status: r.status, body: await r.json() };
 }
 
@@ -121,14 +138,16 @@ async function runJobAndCheck(post, inst, cliOut, label) {
   ok(ds.identical === true, `${label}: job reports IDENTICAL`);
   ok(ds.validation?.ok === true, `${label}: validate.py — ${ds.validation?.summary}`);
   // byte-identical to the CLI run
-  const dl = await fetch(`${BASE}/api/run/${job.id}/file?ds=${ds.name}&kind=output`);
+  const dl = await fetchRetry(`${BASE}/api/run/${job.id}/file?ds=${ds.name}&kind=output`);
   const web = Buffer.from(await dl.arrayBuffer());
   ok(web.equals(readFileSync(cliOut)), `${label}: output byte-identical to system/run CLI`);
-  const dlT = await fetch(`${BASE}/api/run/${job.id}/file?ds=${ds.name}&kind=traces`);
+  const dlT = await fetchRetry(`${BASE}/api/run/${job.id}/file?ds=${ds.name}&kind=traces`);
   const webT = Buffer.from(await dlT.arrayBuffer());
   const cliTrace = join(dirname(cliOut), "traces", `${inst}.jsonl`);
   ok(existsSync(cliTrace) && webT.equals(readFileSync(cliTrace)),
     `${label}: traces byte-identical to CLI`);
+  // free the job's temp dir — verified, no reason to keep ~50MB around
+  await fetchRetry(`${BASE}/api/run/${job.id}`, { method: "DELETE" }).catch(() => {});
 }
 
 console.log(`ClauseProof /run upload proof — ${BASE}`);
@@ -178,7 +197,7 @@ try {
     mkdirSync(cliOutDir, { recursive: true });
     const cliOut = join(cliOutDir, "investment.jsonl");
     sh(RUN, [join(INST_ROOT, "investment"), cliOut]);
-    const post = fetch(`${BASE}/api/run`, {
+    const post = fetchRetry(`${BASE}/api/run`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ sample: "investment" }),
