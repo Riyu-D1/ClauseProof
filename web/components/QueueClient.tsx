@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import RunProof from "@/components/RunProof";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import VerdictPill from "@/components/VerdictPill";
-import { gbpShort, pct } from "@/lib/format";
+import { VERDICT_COLOR, gbpShort } from "@/lib/format";
 import {
   INSTITUTION_LABEL,
   type Demo,
@@ -35,22 +35,52 @@ function ProofBar({
     }
     return { counts: m, total: n };
   }, [manifest]);
-  const stats = [
-    { label: "CASES TRIAGED", value: String(total), color: "#37e0d8" },
-    { label: "CLOSED", value: `${pct(counts.CLOSE, total)}%`, color: "#2bd47d" },
-    { label: "RFI", value: `${pct(counts.RFI, total)}%`, color: "#ffb020" },
-    { label: "ESCALATED", value: `${pct(counts.ESCALATE, total)}%`, color: "#ff3b5c" },
-  ];
   return (
-    <div className="panel flex items-stretch divide-x divide-white/[0.07] overflow-visible">
-      {stats.map((s) => (
-        <div key={s.label} className="flex flex-1 flex-col gap-0.5 px-5 py-3">
-          <span className="mono text-[10px] tracking-[0.16em] text-ink-500">{s.label}</span>
-          <span className="mono text-2xl font-semibold" style={{ color: s.color }}>
-            {s.value}
-          </span>
+    <div className="panel flex items-stretch">
+      {/* primary: the one number that matters */}
+      <div className="flex flex-col justify-center gap-1 border-r border-line px-6 py-4">
+        <span className="label">Cases triaged</span>
+        <span className="doto text-[42px] leading-none text-ink-100">
+          {total.toLocaleString("en-GB")}
+        </span>
+      </div>
+      {/* secondary: segmented verdict bar + readouts */}
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2.5 border-r border-line px-6 py-4">
+        <div className="flex items-baseline justify-between gap-6">
+          {VERDICTS.map((v) => (
+            <div key={v} className="flex items-baseline gap-2">
+              <span className="label">{v === "CLOSE" ? "Closed" : v === "RFI" ? "RFI" : "Escalated"}</span>
+              <span
+                className="mono text-[15px] font-bold"
+                style={{ color: VERDICT_COLOR[v] }}
+              >
+                {total ? Math.round((counts[v] / total) * 100) : 0}%
+              </span>
+            </div>
+          ))}
         </div>
-      ))}
+        <div className="flex h-[10px] w-full gap-[2px]" role="img"
+          aria-label={`verdict split — close ${counts.CLOSE}, rfi ${counts.RFI}, escalate ${counts.ESCALATE} of ${total}`}
+        >
+          {VERDICTS.map((v) => (
+            <div
+              key={v}
+              className="h-full"
+              style={{
+                flex: `${counts[v]} 1 0`,
+                background: VERDICT_COLOR[v],
+              }}
+            />
+          ))}
+        </div>
+        <div className="flex justify-between">
+          {VERDICTS.map((v) => (
+            <span key={v} className="mono text-[10px] text-ink-500">
+              {counts[v].toLocaleString("en-GB")}
+            </span>
+          ))}
+        </div>
+      </div>
       <RunProof institution={institution} />
     </div>
   );
@@ -175,7 +205,7 @@ export default function QueueClient({
     return (
       <div className="flex flex-1 items-center justify-center p-10">
         <div className="panel max-w-md p-8 text-center">
-          <p className="mono text-[11px] tracking-[0.2em] text-ink-500">NO DATA</p>
+          <p className="mono text-[11px] tracking-[0.2em] text-ink-500">[ NO DATA ]</p>
           <h2 className="mt-2 text-lg font-semibold text-ink-100">No traces loaded yet</h2>
           <p className="mt-2 text-sm text-ink-300">
             Run <code className="mono text-accent">node scripts/import-traces.mjs</code> to
@@ -186,91 +216,46 @@ export default function QueueClient({
     );
   }
 
+  const segBtn = (id: string, label: React.ReactNode, sub?: React.ReactNode) => {
+    const active = tab === id;
+    const idx = tabIds.indexOf(id);
+    return (
+      <button
+        key={id}
+        onClick={() => setTab(id)}
+        className={`flex items-baseline gap-2 px-4 py-2.5 text-left transition-colors duration-150 ${
+          active ? "bg-ink-100 text-obsidian-950" : "text-ink-400 hover:text-ink-100"
+        }`}
+      >
+        <span className="mono text-[11px] font-bold tracking-[0.1em]">
+          <span className={active ? "opacity-50" : "text-ink-600"}>{idx + 1} </span>
+          {label}
+        </span>
+        {sub && (
+          <span className={`mono text-[9.5px] ${active ? "text-obsidian-950/70" : "text-ink-500"}`}>
+            {sub}
+          </span>
+        )}
+      </button>
+    );
+  };
+
   return (
-    <div className="flex flex-1 flex-col gap-5 p-5">
+    <div className="flex flex-1 flex-col gap-4 p-6">
       <ProofBar manifest={manifest} institution={instForProof} />
 
-      {/* tabs: Demo first, then institutions */}
-      <div className="flex items-center gap-2">
-        {hasDemo && (
-          <button
-            onClick={() => setTab(DEMO_TAB)}
-            className={`panel panel-hover relative flex items-center gap-3 px-4 py-2.5 text-left ${
-              tab === DEMO_TAB ? "!border-[#37e0d855]" : ""
-            }`}
-            style={
-              tab === DEMO_TAB ? { background: "rgba(55,224,216,0.05)" } : undefined
-            }
-          >
-            <span className="mono text-[10px] text-ink-600">1</span>
-            <span className="flex flex-col">
-              <span
-                className={`text-[13px] font-medium ${
-                  tab === DEMO_TAB ? "text-ink-100" : "text-ink-300"
-                }`}
-              >
-                ★ Demo
-              </span>
-              <span className="mono text-[10px] text-ink-500">
-                {demo!.picks.length} showcase cases
-              </span>
-            </span>
-            {tab === DEMO_TAB && (
-              <motion.span
-                layoutId="tab-glow"
-                className="absolute inset-x-3 -bottom-px h-px"
-                style={{
-                  background: "linear-gradient(90deg, transparent, #37e0d8, transparent)",
-                }}
-              />
-            )}
-          </button>
-        )}
-        {institutions.map((inst, i) => {
-          const active = inst.id === tab;
-          const counts = inst.verdicts ?? ({} as Record<Verdict, number>);
-          return (
-            <button
-              key={inst.id}
-              onClick={() => setTab(inst.id)}
-              className={`panel panel-hover relative flex items-center gap-3 px-4 py-2.5 text-left ${
-                active ? "!border-[#37e0d855]" : ""
-              }`}
-              style={active ? { background: "rgba(55,224,216,0.05)" } : undefined}
-            >
-              <span className="mono text-[10px] text-ink-600">{i + (hasDemo ? 2 : 1)}</span>
-              <span className="flex flex-col">
-                <span className={`text-[13px] font-medium ${active ? "text-ink-100" : "text-ink-300"}`}>
-                  {INSTITUTION_LABEL[inst.id] ?? inst.id}
-                </span>
-                <span className="mono flex items-center gap-1.5 text-[10px] text-ink-500">
-                  {inst.cases} cases
-                  {VERDICTS.map((v) =>
-                    counts[v] ? (
-                      <span key={v} className="flex items-center gap-1">
-                        <span
-                          className="inline-block h-1 w-1 rounded-full"
-                          style={{
-                            background:
-                              v === "CLOSE" ? "#2bd47d" : v === "RFI" ? "#ffb020" : "#ff3b5c",
-                          }}
-                        />
-                        {counts[v]}
-                      </span>
-                    ) : null
-                  )}
-                </span>
-              </span>
-              {active && (
-                <motion.span
-                  layoutId="tab-glow"
-                  className="absolute inset-x-3 -bottom-px h-px"
-                  style={{ background: "linear-gradient(90deg, transparent, #37e0d8, transparent)" }}
-                />
-              )}
-            </button>
-          );
-        })}
+      {/* tabs: Nothing segmented control — active = inverted */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center overflow-hidden rounded-lg border border-line-2">
+          {hasDemo && segBtn(DEMO_TAB, "DEMO", `${demo!.picks.length} picks`)}
+          {institutions.map((inst) =>
+            segBtn(
+              inst.id,
+              (INSTITUTION_LABEL[inst.id] ?? inst.id).toUpperCase(),
+              `${inst.cases.toLocaleString("en-GB")}`
+            )
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-2">
           {tab !== DEMO_TAB && (
             <div className="relative">
@@ -278,20 +263,20 @@ export default function QueueClient({
                 ref={searchRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search cases, customers, counterparties…"
-                className="mono w-[300px] rounded-lg border border-white/10 bg-white/[0.03] py-2 pl-3 pr-8 text-[12px] text-ink-100 outline-none placeholder:text-ink-600 focus:border-[#37e0d860]"
+                placeholder="SEARCH CASES, CUSTOMERS, PARTIES…"
+                className="mono w-[300px] rounded-md border border-line bg-obsidian-850 py-2 pl-3 pr-8 text-[11px] tracking-wide text-ink-100 outline-none placeholder:text-ink-600 focus:border-accent"
               />
               <span className="kbd absolute right-2.5 top-1/2 -translate-y-1/2">/</span>
             </div>
           )}
           <button
             onClick={() => setHelp(true)}
-            className="kbd px-1.5 py-1"
+            className="mono rounded-md border border-line px-2.5 py-1.5 text-[11px] text-ink-400 transition-colors hover:border-line-2 hover:text-ink-100"
             title="Keyboard shortcuts"
           >
-            ?
+            [ ? ]
           </button>
-          <span className="mono hidden items-center gap-1.5 text-[10px] text-ink-600 lg:flex">
+          <span className="mono hidden items-center gap-1.5 text-[10px] text-ink-500 lg:flex">
             <span className="kbd">j</span>
             <span className="kbd">k</span> navigate
             <span className="kbd">↵</span> open
@@ -301,45 +286,49 @@ export default function QueueClient({
 
       {/* demo picks */}
       {tab === DEMO_TAB ? (
-        <div className="grid flex-1 grid-cols-1 gap-3 pb-8 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid flex-1 grid-cols-1 content-start gap-3 pb-8 md:grid-cols-2 xl:grid-cols-3">
           {picks.map((pick, i) => {
             const selected = i === cursor;
             return (
               <motion.button
                 key={pick.case_id}
                 data-idx={i}
-                initial={{ opacity: 0, y: 14 }}
+                initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: i * 0.06 }}
+                transition={{ duration: 0.25, delay: i * 0.05 }}
                 onClick={() => router.push(`/case/${pick.case_id}`)}
                 onMouseEnter={() => setCursor(i)}
-                className={`panel panel-hover group flex flex-col gap-3 p-4 text-left ${
-                  selected ? "!border-[#37e0d845]" : ""
+                className={`panel panel-hover group relative flex flex-col gap-3 p-5 text-left ${
+                  selected ? "border-accent" : ""
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="mono flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.14em] text-accent">
-                    <span>{SLOT_ICON[pick.slot] ?? "◆"}</span>
-                    {pick.label.toUpperCase()}
+                  <span className="mono text-[10px] font-bold tracking-[0.16em] text-ink-400">
+                    {SLOT_ICON[pick.slot] ?? "·"} {pick.label.toUpperCase()}
                   </span>
                   <VerdictPill verdict={pick.verdict} size="sm" />
                 </div>
-                <p className="text-[12.5px] leading-snug text-ink-300">{pick.blurb}</p>
-                <div className="mt-auto flex items-end justify-between gap-2 border-t border-white/[0.06] pt-3">
+                <div className="flex items-baseline gap-2">
+                  <span className="doto text-[30px] leading-none text-ink-100">
+                    {gbpShort(pick.flagged_gbp)}
+                  </span>
+                  <span className="label">flagged</span>
+                </div>
+                <p className="text-[13px] leading-snug text-ink-300">{pick.blurb}</p>
+                <div className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3">
                   <div className="min-w-0">
-                    <div className="mono truncate text-[13px] font-semibold text-ink-100">
+                    <div className="mono truncate text-[12.5px] font-bold text-ink-100">
                       {pick.case_id}
                     </div>
-                    <div className="truncate text-[11px] text-ink-500">
+                    <div className="truncate text-[11px] text-ink-400">
                       {pick.customer_name} · {INSTITUTION_LABEL[pick.institution] ?? pick.institution}
                     </div>
                   </div>
                   <div className="mono shrink-0 text-right text-[10px] leading-relaxed text-ink-500">
-                    <div>{gbpShort(pick.flagged_gbp)} flagged</div>
                     <div>
                       {pick.txns} txns · {pick.counterparties} parties
                       {pick.unexplained ? ` · ${pick.unexplained}?` : ""}
-                      {pick.has_flip ? " · ⤨ flip" : ""}
+                      {pick.has_flip ? " · flip" : ""}
                     </div>
                   </div>
                 </div>
@@ -348,8 +337,8 @@ export default function QueueClient({
           })}
         </div>
       ) : (
-        /* queue */
-        <div ref={listRef} className="flex flex-col gap-2 pb-8">
+        /* queue — one surface, hairline rows, cursor = left accent bar */
+        <div ref={listRef} className="panel flex flex-col divide-y divide-line overflow-hidden">
           <AnimatePresence mode="popLayout">
             {shown.map((t, i) => {
               const flagged = t.coverage.reduce((s, c) => s + c.amount_gbp, 0);
@@ -360,40 +349,46 @@ export default function QueueClient({
                   layout
                   key={t.case_id}
                   data-idx={i}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.15, delay: Math.min(i * 0.012, 0.25) }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.12 }}
                   onClick={() => router.push(`/case/${t.case_id}`)}
                   onMouseEnter={() => setCursor(i)}
-                  className={`panel panel-hover group flex items-center gap-4 px-4 py-3 text-left ${
-                    selected ? "!border-[#37e0d845]" : ""
+                  className={`group flex items-center gap-5 px-4 py-3 text-left transition-colors ${
+                    selected ? "bg-obsidian-800" : "hover:bg-obsidian-800/60"
                   }`}
+                  style={
+                    selected
+                      ? { boxShadow: "inset 2px 0 0 var(--color-accent)" }
+                      : undefined
+                  }
                 >
                   <span
-                    className="mono w-5 text-right text-[11px]"
-                    style={{ color: selected ? "#37e0d8" : "#5f6b7e" }}
+                    className={`mono w-6 text-right text-[11px] ${
+                      selected ? "text-accent" : "text-ink-600"
+                    }`}
                   >
                     {String(i + 1).padStart(2, "0")}
                   </span>
-                  <div className="flex w-[210px] flex-col">
-                    <span className="mono text-[12.5px] font-medium text-ink-100">{t.case_id}</span>
-                    <span className="truncate text-[11.5px] text-ink-500">{t.customer.name}</span>
+                  <div className="flex w-[220px] flex-col">
+                    <span className="mono text-[12.5px] font-bold text-ink-100">{t.case_id}</span>
+                    <span className="truncate text-[11.5px] text-ink-400">{t.customer.name}</span>
                   </div>
                   <div className="flex flex-1 flex-wrap items-center gap-1.5">
                     {t.customer.held_payment_id && (
                       <span
-                        className="mono rounded-md border border-[#ffb02055] bg-[#ffb02012] px-1.5 py-0.5 text-[10px] font-semibold text-rfi"
+                        className="mono rounded border border-[#ffb22455] px-1.5 py-0.5 text-[9.5px] font-bold tracking-wider text-rfi"
                         title="An outgoing payment is held until this case is decided"
                       >
-                        ⏸ HELD
+                        HELD
                       </span>
                     )}
                     {t.alerts.slice(0, 3).map((a) => (
                       <span
                         key={a.alert_id}
                         title={a.message}
-                        className="mono rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-ink-300"
+                        className="mono rounded border border-line bg-obsidian-800 px-1.5 py-0.5 text-[10px] text-ink-300"
                       >
                         {a.rule_id} · {a.rule_name.split(" ").slice(0, 3).join(" ")}
                       </span>
@@ -402,14 +397,17 @@ export default function QueueClient({
                       <span className="mono text-[10px] text-ink-500">+{t.alerts.length - 3}</span>
                     )}
                   </div>
-                  <div className="hidden w-[130px] flex-col items-end md:flex">
+                  <div className="hidden w-[140px] flex-col items-end md:flex">
                     <span className="mono text-[12.5px] text-ink-100">{gbpShort(flagged)}</span>
-                    <span className="mono text-[10px] text-ink-500">
+                    <span
+                      className="mono text-[10px]"
+                      style={{ color: uncovered ? "#ff5566" : "#7c8490" }}
+                    >
                       {uncovered ? `${uncovered} unexplained` : "all explained"}
                     </span>
                   </div>
                   <VerdictPill verdict={t.verdict} />
-                  <span className="text-ink-600 transition-transform group-hover:translate-x-0.5 group-hover:text-accent">
+                  <span className="text-ink-600 transition-colors group-hover:text-accent">
                     →
                   </span>
                 </motion.button>
@@ -417,24 +415,18 @@ export default function QueueClient({
             })}
           </AnimatePresence>
           {rows.length === 0 && loading && (
-            <div className="flex flex-col gap-2">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div
-                  key={i}
-                  className="panel h-[62px] animate-pulse"
-                  style={{ animationDelay: `${i * 0.08}s` }}
-                />
-              ))}
-            </div>
+            <p className="mono px-5 py-10 text-[11px] tracking-[0.18em] text-ink-500">
+              <span className="cp-dots">[ LOADING TRACES</span>
+              <span> ]</span>
+            </p>
           )}
           {rows.length === 0 && !loading && (
-            <div className="panel p-10 text-center">
-              <p className="mono text-[11px] tracking-[0.2em] text-ink-500">EMPTY</p>
-              <p className="mt-2 text-sm text-ink-300">No cases match “{query}”.</p>
-            </div>
+            <p className="mono px-5 py-10 text-[11px] tracking-[0.18em] text-ink-500">
+              [ EMPTY — no cases match “{query}” ]
+            </p>
           )}
           {rows.length > PAGE_SIZE && (
-            <p className="mono px-1 pt-1 text-[10px] tracking-wider text-ink-600">
+            <p className="mono border-t border-line px-4 py-2.5 text-[10px] tracking-[0.14em] text-ink-500">
               SHOWING {PAGE_SIZE} OF {rows.length.toLocaleString()} — press{" "}
               <span className="kbd">/</span> to search
             </p>
@@ -442,7 +434,7 @@ export default function QueueClient({
         </div>
       )}
 
-      <ShortcutHelp open={help} onClose={() => setHelp(false)} page="queue" />
+      <ShortcutHelp open={help} onClose={() => setHelp(false)} />
     </div>
   );
 }

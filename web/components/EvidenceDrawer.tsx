@@ -53,46 +53,42 @@ export default function EvidenceDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/60"
             onClick={onClose}
           />
           <motion.aside
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", stiffness: 320, damping: 34 }}
-            className="fixed bottom-0 right-0 top-0 z-50 flex w-[460px] max-w-[92vw] flex-col border-l border-white/10 bg-obsidian-900"
+            transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+            className="fixed bottom-0 right-0 top-0 z-50 flex w-[480px] max-w-[94vw] flex-col border-l border-line-2 bg-obsidian-900"
           >
-            <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-3.5">
+            <div className="flex h-14 items-center justify-between border-b border-line px-5">
               <div className="flex items-center gap-2.5">
-                <span className="mono text-[10px] tracking-[0.18em] text-ink-500">EVIDENCE</span>
-                <span className="mono rounded-md border border-[#37e0d840] bg-[#37e0d810] px-2 py-0.5 text-[11px] text-accent">
+                <span className="label">Evidence</span>
+                <span className="mono rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-bold text-accent">
                   {docId}
                 </span>
               </div>
               <button
+                autoFocus
                 onClick={onClose}
-                className="mono rounded-md border border-white/10 px-2 py-1 text-[11px] text-ink-300 hover:border-white/30"
+                className="mono rounded border border-line px-2 py-1 text-[10px] tracking-[0.1em] text-ink-300 transition-colors hover:border-line-2 hover:text-ink-100"
               >
-                esc ✕
+                ESC ✕
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="flex-1 overflow-y-auto px-6 py-5">
               {loading && (
-                <div className="flex flex-col gap-3 pt-2">
-                  {[64, 40, 88, 72, 52].map((w, i) => (
-                    <div
-                      key={i}
-                      className="h-3 animate-pulse rounded bg-white/[0.06]"
-                      style={{ width: `${w}%` }}
-                    />
-                  ))}
-                </div>
+                <p className="mono pt-4 text-[11px] tracking-[0.18em] text-ink-500">
+                  <span className="cp-dots">[ FETCHING DOCUMENT</span>
+                  <span> ]</span>
+                </p>
               )}
               {missing && (
                 <div className="panel mt-2 p-4">
-                  <p className="mono text-[10px] tracking-[0.16em] text-ink-500">NOT A DOCUMENT</p>
-                  <p className="mt-2 text-[12.5px] text-ink-300">
+                  <p className="label">Not a document</p>
+                  <p className="mt-2 text-[12.5px] leading-relaxed text-ink-300">
                     <code className="mono text-accent">{missing}</code> is referenced by the
                     verdict but is not a document in <code>{institution}/evidence/</code> — it may
                     be a transaction or internal-list entry.
@@ -102,7 +98,7 @@ export default function EvidenceDrawer({
               {doc && (
                 <>
                   <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <span className="mono rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] text-ink-300">
+                    <span className="mono rounded border border-line bg-obsidian-800 px-2 py-0.5 text-[9.5px] uppercase tracking-[0.12em] text-ink-300">
                       {doc.type}
                     </span>
                     {doc.dated && (

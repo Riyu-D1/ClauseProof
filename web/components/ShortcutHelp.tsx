@@ -2,67 +2,87 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 
-const QUEUE_KEYS: [string, string][] = [
-  ["j / k", "move through the list"],
-  ["↵", "open the selected case"],
-  ["/", "search cases, customers, counterparties"],
-  ["1 – 5", "switch tab (Demo, then institutions)"],
-  ["?", "this panel"],
-];
-
-const CASE_KEYS: [string, string][] = [
-  ["j / k", "next / previous case in the queue"],
-  ["r", "replay the decision path"],
-  ["f", "toggle the flip simulation"],
-  ["esc", "close drawer, then back to queue"],
-  ["?", "this panel"],
+const GROUPS: { title: string; keys: [string, string][] }[] = [
+  {
+    title: "Queue",
+    keys: [
+      ["j / k", "move down / up"],
+      ["enter", "open case"],
+      ["1–9", "open demo pick"],
+      ["/", "focus search"],
+    ],
+  },
+  {
+    title: "Case board",
+    keys: [
+      ["j / k", "next / previous case"],
+      ["r", "replay decision path"],
+      ["f", "toggle flip simulation"],
+      ["o", "OSINT drawer"],
+      ["esc", "close panel / back"],
+    ],
+  },
+  {
+    title: "General",
+    keys: [["?", "this sheet"]],
+  },
 ];
 
 export default function ShortcutHelp({
   open,
   onClose,
-  page,
 }: {
   open: boolean;
   onClose: () => void;
-  page: "queue" | "case";
 }) {
-  const keys = page === "queue" ? QUEUE_KEYS : CASE_KEYS;
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 backdrop-blur-[2px]"
-          onClick={onClose}
-        >
+        <>
           <motion.div
-            initial={{ scale: 0.94, y: 10 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.94, y: 10 }}
-            transition={{ type: "spring", stiffness: 380, damping: 28 }}
-            className="panel w-[340px] p-5"
-            style={{ background: "rgba(13,17,24,0.97)" }}
-            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/60"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.18 }}
+            className="fixed left-1/2 top-1/2 z-[70] w-[560px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-line-2 bg-obsidian-900 p-6"
+            role="dialog"
+            aria-label="Keyboard shortcuts"
           >
-            <div className="mono mb-3 text-[10px] tracking-[0.2em] text-ink-500">
-              KEYBOARD SHORTCUTS
+            <div className="mb-5 flex items-center justify-between">
+              <span className="label">Keyboard shortcuts</span>
+              <button
+                onClick={onClose}
+                className="mono rounded border border-line px-1.5 py-0.5 text-[10px] text-ink-400 transition-colors hover:border-line-2 hover:text-ink-100"
+              >
+                ✕
+              </button>
             </div>
-            <div className="flex flex-col gap-2">
-              {keys.map(([k, d]) => (
-                <div key={k} className="flex items-center justify-between gap-4">
-                  <span className="text-[12px] text-ink-300">{d}</span>
-                  <span className="kbd shrink-0">{k}</span>
+            <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-3">
+              {GROUPS.map((g) => (
+                <div key={g.title}>
+                  <p className="label mb-2.5" style={{ fontSize: "9.5px" }}>
+                    {g.title}
+                  </p>
+                  <ul className="flex flex-col gap-2">
+                    {g.keys.map(([k, d]) => (
+                      <li key={k} className="flex items-center justify-between gap-3">
+                        <span className="text-[11.5px] text-ink-300">{d}</span>
+                        <span className="kbd">{k}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               ))}
             </div>
-            <div className="mono mt-4 border-t border-white/[0.07] pt-3 text-[10px] text-ink-600">
-              esc or click outside to close
-            </div>
           </motion.div>
-        </motion.div>
+        </>
       )}
     </AnimatePresence>
   );

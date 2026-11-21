@@ -13,21 +13,20 @@ export default function VerdictPill({
     size === "lg"
       ? "px-3.5 py-1.5 text-[13px]"
       : size === "sm"
-        ? "px-2 py-0.5 text-[10px]"
+        ? "px-2 py-[3px] text-[10px]"
         : "px-2.5 py-1 text-[11px]";
   return (
     <span
-      className={`mono inline-flex items-center gap-1.5 rounded-full font-semibold tracking-wide ${pad}`}
+      className={`mono inline-flex items-center gap-1.5 rounded font-bold tracking-[0.08em] ${pad}`}
       style={{
         color: c,
-        background: `${c}14`,
-        border: `1px solid ${c}45`,
-        boxShadow: `0 0 14px ${c}22`,
+        background: `${c}12`,
+        border: `1px solid ${c}55`,
       }}
     >
       <span
-        className="inline-block h-1.5 w-1.5 rounded-full"
-        style={{ background: c, boxShadow: `0 0 8px ${c}` }}
+        className="inline-block h-[5px] w-[5px] rounded-full"
+        style={{ background: c }}
       />
       {verdict}
     </span>
