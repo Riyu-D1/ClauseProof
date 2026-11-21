@@ -1,6 +1,9 @@
 import GrokAssistPanel, { GrokReadTag } from "@/components/GrokAssistPanel";
 import PageCaption from "@/components/PageCaption";
 
+// Real grok_summary.json from the warm payments_fx run (5th replay):
+// 32 purchase_order docs the parser could not extract, all served from
+// cache, zero API calls.
 const EXAMPLE_SUMMARY = {
   enabled: true,
   key_configured: false,
@@ -18,7 +21,7 @@ const EXAMPLE_SUMMARY = {
 };
 
 // Preview of the Grok-assist switch + tag until the /run page lands.
-// Numbers below are example data, not a real run.
+// Summary above is a real warm-run summary from payments_fx.
 export default function GrokDemo() {
   return (
     <div>

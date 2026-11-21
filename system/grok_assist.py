@@ -395,10 +395,8 @@ class GrokAssist:
         if not misses or not self.api_key:
             return
         room = max(0, self.budget - self.calls)
-        todo, dropped = misses[:room], misses[room:]
-        self.budget_stops += len(dropped)
-        for doc, key, _u in dropped:
-            self._store(key, {"status": "budget"})
+        todo = misses[:room]
+        self.budget_stops += len(misses) - len(todo)
         if not todo:
             return
 
