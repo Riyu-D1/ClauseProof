@@ -19,6 +19,7 @@ export default function RunProof({ institution }: { institution: string }) {
   const [runs, setRuns] = useState<RunResult[]>([]);
   const [identical, setIdentical] = useState<boolean | null>(null);
   const [totalMs, setTotalMs] = useState(0);
+  const [dataset, setDataset] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -75,13 +76,17 @@ export default function RunProof({ institution }: { institution: string }) {
             hash?: string;
             identical?: boolean;
             total_ms?: number;
+            dataset?: string;
             message?: string;
           };
-          if (ev.type === "run" && ev.n != null && ev.hash) {
+          if (ev.type === "start" && ev.dataset) {
+            setDataset(ev.dataset);
+          } else if (ev.type === "run" && ev.n != null && ev.hash) {
             setRuns((r) => [...r, { n: ev.n!, ms: ev.ms ?? 0, hash: ev.hash! }]);
           } else if (ev.type === "done") {
             setIdentical(!!ev.identical);
             setTotalMs(ev.total_ms ?? Math.round(performance.now() - t0));
+            if (ev.dataset) setDataset(ev.dataset);
             setStatus("done");
           } else if (ev.type === "error") {
             throw new Error(ev.message ?? "run failed");
@@ -134,6 +139,7 @@ export default function RunProof({ institution }: { institution: string }) {
             <div className="mb-3 flex items-center justify-between">
               <span className="label">
                 Reproducibility proof · {INSTITUTION_LABEL[institution] ?? institution} · 5 runs
+                {dataset === "demo-subset" && " · demo subset"}
               </span>
               <button
                 onClick={() => setOpen(false)}
@@ -188,7 +194,7 @@ export default function RunProof({ institution }: { institution: string }) {
               <span className="mono text-[9.5px] tracking-[0.06em] text-ink-500">
                 {status === "running" && "system/run × 5 → sha256 per output"}
                 {status === "done" &&
-                  `${(totalMs / 1000).toFixed(1)}s total · byte-identical outputs = deterministic verdicts`}
+                  `${(totalMs / 1000).toFixed(1)}s total · byte-identical outputs = deterministic verdicts${dataset === "demo-subset" ? " · live run on bundled demo subset" : ""}`}
                 {status === "error" && <span className="text-escalate">{error}</span>}
               </span>
               {status === "done" && (
