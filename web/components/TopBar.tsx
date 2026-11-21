@@ -34,6 +34,12 @@ export default function TopBar({ fixture }: { fixture: boolean }) {
         </span>
       </Link>
       <div className="flex items-center gap-4">
+        <Link
+          href="/live"
+          className="mono rounded-md border border-accent/50 px-2.5 py-1 text-[10px] font-bold tracking-[0.14em] text-accent transition-colors hover:border-accent hover:bg-accent/10"
+        >
+          TRY IT LIVE
+        </Link>
         {fixture && <FixtureBadge />}
         {/* verdict vocabulary — live legend, colour only carries meaning */}
         <div className="hidden items-center gap-4 sm:flex" aria-label="verdict legend">
