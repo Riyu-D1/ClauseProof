@@ -201,6 +201,24 @@ export default async function OverviewPage() {
             })}
           </section>
 
+          {/* the judge's path — front and centre */}
+          <Link
+            href="/run"
+            className="panel panel-hover group flex flex-wrap items-center gap-4 border-accent/50 p-5 transition-colors hover:border-accent"
+            aria-label="Test it on your own data"
+          >
+            <span className="doto text-[24px] leading-none text-accent">
+              TEST IT ON YOUR OWN DATA →
+            </span>
+            <span className="text-[12.5px] leading-relaxed text-ink-300">
+              Drop the institution folder the judges hand over — the real
+              engine runs it 5× and proves every byte is identical.
+            </span>
+            <span className="mono ml-auto text-[9.5px] tracking-[0.14em] text-ink-500 group-hover:text-accent">
+              .ZIP · FOLDER · SAMPLE — UNDER A MINUTE
+            </span>
+          </Link>
+
           {/* three ways in */}
           <section className="grid grid-cols-1 gap-3 pb-6 md:grid-cols-3" aria-label="Ways in">
             <Link href="/queue" className={CTA_CLS}>
