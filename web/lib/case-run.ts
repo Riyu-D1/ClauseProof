@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { Trace, Verdict } from "./types.ts";
 
 const ROOT = resolve(process.cwd(), "..");
@@ -132,7 +132,7 @@ function writeOneCaseInstitution(loc: LocatedCase): { instDir: string; tmp: stri
 
 function runEngine(instDir: string, outFile: string): Promise<void> {
   return new Promise((res, rej) => {
-    const child = spawn(RUN_SCRIPT, [instDir, outFile], {
+    const child = spawn(RUN_SCRIPT, ["--trace-dir", join(dirname(outFile), "traces"), instDir, outFile], {
       cwd: SYSTEM_DIR,
       stdio: ["ignore", "ignore", "pipe"],
     });

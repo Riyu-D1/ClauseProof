@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T13:29:14Z",
+ "generated_at": "2026-11-21T16:20:15Z",
  "method": "system/check_repro.sh \u2014 5 runs of system/run per institution, outputs compared byte-for-byte",
  "runs": 5,
  "identical_verdicts": true,
@@ -19,12 +19,12 @@
   "investment": {
    "runs": 5,
    "identical": true,
-   "sha256": "5a61e7b107481909ef7b4d5da7cf42bdd5ff89cc4065b4180c7796b18848370e"
+   "sha256": "db8955582c0a54d1ab446b26c26a475ff84eff28d805ef972967c91f5aa9fd56"
   },
   "payments_fx": {
    "runs": 5,
    "identical": true,
-   "sha256": "8284c2d02add07955428c6473ba82832fed79a50f03c3d1ddf9fe0414d2572da"
+   "sha256": "54c0bdb7ca2644a29d622dabdeaac236e62f78aaedca1dc16d2b49b0095004fd"
   }
  }
 }
