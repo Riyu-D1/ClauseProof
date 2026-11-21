@@ -15,6 +15,7 @@ const LINKS = [
     match: (p: string) => p.startsWith("/queue") || p.startsWith("/case"),
   },
   { href: "/live", label: "TRY IT LIVE", key: "l", match: (p: string) => p.startsWith("/live") },
+  { href: "/run", label: "RUN YOUR DATA", key: "r", match: (p: string) => p.startsWith("/run") },
   {
     href: "/stage",
     label: "BEAT THE ANALYST",

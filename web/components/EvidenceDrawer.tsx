@@ -25,12 +25,16 @@ export default function EvidenceDrawer({
   txList,
   onDoc,
   onClose,
+  docUrl,
 }: {
   institution: string;
   docId: string | null;
   txList?: TxListing | null;
   onDoc?: (id: string) => void;
   onClose: () => void;
+  // override the document endpoint — /run datasets fetch their docs from
+  // the upload job, not the dev-dataset /api/evidence route
+  docUrl?: (id: string) => string;
 }) {
   const [doc, setDoc] = useState<DocPayload | null>(null);
   const [missing, setMissing] = useState<string | null>(null);
@@ -43,7 +47,11 @@ export default function EvidenceDrawer({
     setLoading(true);
     setDoc(null);
     setMissing(null);
-    fetch(`/api/evidence?institution=${institution}&doc=${encodeURIComponent(docId)}`)
+    fetch(
+      docUrl
+        ? docUrl(docId)
+        : `/api/evidence?institution=${institution}&doc=${encodeURIComponent(docId)}`
+    )
       .then(async (r) => {
         if (dead) return;
         if (r.ok) setDoc(await r.json());
@@ -54,7 +62,7 @@ export default function EvidenceDrawer({
     return () => {
       dead = true;
     };
-  }, [docId, institution]);
+  }, [docId, institution, docUrl]);
 
   const listTotal = txList?.rows.reduce((s, r) => s + r.amount_gbp, 0) ?? 0;
 
