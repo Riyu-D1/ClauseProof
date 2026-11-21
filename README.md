@@ -48,6 +48,52 @@ Smoke test the running app end to end:
 ./scripts/smoke.sh  # 18 checks: pages, queues, APIs, live 5× proof, 4 plays
 ```
 
+## Live demo
+
+**Public URL:** `https://<FILL IN — e.g. clauseproof.onrender.com>` — open it on
+a phone: `/` is the queue, `/play` is the game, `/stage` is the shared
+scoreboard (game plays appear live via Supabase realtime).
+
+The private dataset (`institutions/`, 4,000 cases) is **not** shipped — it is
+gitignored and never enters the image. What the hosted build serves:
+
+| Thing | Live or recorded? |
+|---|---|
+| `/` queue + `/case/<id>` boards | Recorded — pre-generated `web/public/data` + `output/traces` from real local runs |
+| `/play` Beat the Analyst | **Live** — the real engine runs server-side on each synthetic player case; `demo/institutions/` (bundled, synthetic) supplies `POLICY.md` + `internal_list.jsonl` |
+| `/stage` leaderboard | **Live** — plays are inserted into Supabase `public.plays`; every viewer sees inserts via realtime (falls back to in-memory polling if Supabase is unconfigured/down) |
+| `POST /api/proof-run` | **Live** — real `system/run` ×5 with SHA-256 per output, on the bundled `demo/institutions/` subset (23 synthetic cases); labelled "demo subset" in the UI |
+| `/api/evidence` docs | Partial — dataset evidence markdown is not shipped; demo-case docs resolve, dataset docs 404 gracefully |
+| `output/repro.json` | Recorded run from local 5× proof (clearly labelled) |
+
+`demo/institutions/` is generated from the game's own synthetic case
+generator — nothing from the dataset except `POLICY.md` verbatim (safe to
+ship). Regenerate with `cd web && npm run build:demo-inst`.
+
+### Deploy on Render (free tier)
+
+1. Push this branch and open `render.yaml` — it's a Blueprint: Render
+   dashboard → **New → Blueprint** → connect the GitHub repo → apply. Or
+   **New → Web Service** → same repo → Runtime: **Docker**, Plan: **Free**.
+2. Set two env vars in the service's **Environment** tab (values live in
+   `web/.env.local`; the publishable key is browser-safe by design — RLS
+   guards the table):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+3. Deploy. Render injects `PORT`; the container's `next start` honours it.
+   Without the env vars the app still runs — plays just stay in-memory.
+
+### Run the image locally
+
+```bash
+docker build -t clauseproof .
+docker run -p 3000:3000 \
+  -e NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+  -e NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY \
+  clauseproof
+./scripts/smoke.sh http://localhost:3000   # auto-detects hosted mode
+```
+
 ## The engine
 
 ```bash
@@ -124,7 +170,9 @@ not the official key): **[docs/proof.md](docs/proof.md)**. Blind-eval detail:
 ```
 start.sh               one-command demo (deps → engine → import → build → serve)
 scripts/smoke.sh       18-check end-to-end smoke against the running app
+Dockerfile             deployable image (Node 20 + Python 3); render.yaml Blueprint
 system/                engine: run, engine.py, validate.py, check_repro.sh
+demo/institutions/     bundled SYNTHETIC subset for hosted /api/play + /api/proof-run
 output/                <inst>.jsonl (engine output) + traces/ + repro.json
 web/                   Next.js 15 demo UI (queue, case board, play, stage)
 docs/                  proof.md, eval_blind.md, DEMO_RUNBOOK.md, screens/

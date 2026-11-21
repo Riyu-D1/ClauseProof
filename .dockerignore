@@ -1,0 +1,21 @@
+# ClauseProof Docker context — keep the image to what the hosted demo needs.
+.git
+.gitignore
+institutions            # private dataset (symlink) — never shipped
+docs                    # briefs/screenshots are not needed at runtime
+scripts
+start.sh
+output/*.jsonl          # keep output/traces + output/repro.json (baked in)
+**/.env*
+!.env.example
+**/node_modules
+**/.next
+**/tsconfig.tsbuildinfo
+**/next-env.d.ts
+**/__pycache__
+**/.venv
+**/cache
+.DS_Store
+Dockerfile
+.dockerignore
+render.yaml
