@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T12:17:52.467Z",
+ "generated_at": "2026-11-21T13:42:49.831Z",
  "fixture": false,
  "trace_source": "output/traces",
  "institutions": [
@@ -25,21 +25,21 @@
    "id": "investment",
    "cases": 1000,
    "verdicts": {
-    "CLOSE": 606,
-    "RFI": 109,
-    "ESCALATE": 285
+    "CLOSE": 497,
+    "RFI": 181,
+    "ESCALATE": 322
    }
   },
   {
    "id": "payments_fx",
    "cases": 1000,
    "verdicts": {
-    "CLOSE": 475,
-    "RFI": 263,
-    "ESCALATE": 262
+    "CLOSE": 615,
+    "RFI": 117,
+    "ESCALATE": 268
    }
   }
  ],
- "repro": false,
+ "repro": true,
  "total_cases": 4000
 }

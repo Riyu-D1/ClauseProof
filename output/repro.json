@@ -1,0 +1,30 @@
+{
+ "generated_at": "2026-11-21T13:29:14Z",
+ "method": "system/check_repro.sh \u2014 5 runs of system/run per institution, outputs compared byte-for-byte",
+ "runs": 5,
+ "identical_verdicts": true,
+ "identical_reason_codes": true,
+ "identical_bytes": true,
+ "institutions": {
+  "bank": {
+   "runs": 5,
+   "identical": true,
+   "sha256": "c2056447c93d2b41acbc391cecd48b2171afde21976ec166213cfa3d47b0ef87"
+  },
+  "emoney": {
+   "runs": 5,
+   "identical": true,
+   "sha256": "95e624d021a26add0f5c7d4b27b386fec523489503dbca818d3fc955ceb2c500"
+  },
+  "investment": {
+   "runs": 5,
+   "identical": true,
+   "sha256": "5a61e7b107481909ef7b4d5da7cf42bdd5ff89cc4065b4180c7796b18848370e"
+  },
+  "payments_fx": {
+   "runs": 5,
+   "identical": true,
+   "sha256": "8284c2d02add07955428c6473ba82832fed79a50f03c3d1ddf9fe0414d2572da"
+  }
+ }
+}

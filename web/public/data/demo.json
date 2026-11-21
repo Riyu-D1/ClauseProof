@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-11-21T12:32:53.749Z",
+ "generated_at": "2026-11-21T13:42:50.458Z",
  "picks": [
   {
    "slot": "close_invoice",
@@ -49,16 +49,16 @@
   {
    "slot": "held_fx",
    "label": "HELD PAYMENT — release or freeze",
-   "blurb": "£22,934 held by an alert — the evidence checks out, so it is released.",
+   "blurb": "£30,904 held by an alert — the evidence checks out, so it is released.",
    "institution": "payments_fx",
-   "case_id": "PX-CS141432",
+   "case_id": "PX-CS803784",
    "verdict": "CLOSE",
-   "reason_code": "INVOICE_MATCHES",
-   "customer_name": "Elmholt Wine Merchants Ltd",
-   "flagged_gbp": 67375.45,
-   "txns": 3,
-   "counterparties": 1,
-   "unexplained": 0,
+   "reason_code": "WITHIN_PROFILE",
+   "customer_name": "Kelmere Freight Ltd",
+   "flagged_gbp": 450991.34,
+   "txns": 5,
+   "counterparties": 5,
+   "unexplained": 1,
    "has_flip": true
   },
   {
