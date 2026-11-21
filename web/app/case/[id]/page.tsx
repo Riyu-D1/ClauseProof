@@ -35,7 +35,7 @@ export default async function CasePage({
             </p>
             <Link
               href="/"
-              className="mono mt-4 inline-block rounded-lg border border-white/10 px-4 py-2 text-[12px] text-ink-100 hover:border-[#37e0d860]"
+              className="mono mt-4 inline-block rounded-lg border border-line-2 px-4 py-2 text-[12px] text-ink-100 transition-colors hover:border-accent"
             >
               ← Back to queue
             </Link>

@@ -10,8 +10,8 @@ import FlipCard from "@/components/FlipCard";
 import FlowGraph from "@/components/FlowGraph";
 import ShortcutHelp from "@/components/ShortcutHelp";
 import OsintPanel from "@/components/OsintPanel";
-import VerdictPill from "@/components/VerdictPill";
-import { INSTITUTION_LABEL, type Trace, type Verdict } from "@/lib/types";
+import { VERDICT_COLOR } from "@/lib/format";
+import { INSTITUTION_LABEL, type Trace, type TxListing, type Verdict } from "@/lib/types";
 
 interface Peer {
   case_id: string;
@@ -19,9 +19,13 @@ interface Peer {
   name: string;
 }
 
+const BTN =
+  "mono flex h-8 items-center rounded-md border border-line px-3 text-[10.5px] tracking-[0.1em] text-ink-300 transition-colors hover:border-line-2 hover:text-ink-100 disabled:opacity-30";
+
 export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[] }) {
   const router = useRouter();
   const [doc, setDoc] = useState<string | null>(null);
+  const [txList, setTxList] = useState<TxListing | null>(null);
   const [runId, setRunId] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [help, setHelp] = useState(false);
@@ -30,9 +34,22 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
   const next = idx >= 0 && idx < peers.length - 1 ? peers[idx + 1] : null;
 
   const onDoc = useCallback((id: string) => setDoc(id), []);
+  const onList = useCallback(
+    (l: TxListing) =>
+      setTxList({ ...l, heldId: trace.customer.held_payment_id }),
+    [trace.customer.held_payment_id]
+  );
+  // drawer is layered: doc sits on top of a transaction list
+  const closeTop = useCallback(() => {
+    if (doc) setDoc(null);
+    else setTxList(null);
+  }, [doc]);
   const toggleFlip = useCallback(() => setFlipped((f) => !f), []);
 
-  useEffect(() => setFlipped(false), [trace.case_id]);
+  useEffect(() => {
+    setFlipped(false);
+    setTxList(null);
+  }, [trace.case_id]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -48,6 +65,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
       }
       if (e.key === "Escape") {
         if (doc) setDoc(null);
+        else if (txList) setTxList(null);
         else router.push("/");
       } else if (!doc) {
         if (e.key === "j" && next) router.push(`/case/${next.case_id}`);
@@ -58,27 +76,31 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [doc, next, prev, router, trace.flip, toggleFlip, help]);
+  }, [doc, txList, next, prev, router, trace.flip, toggleFlip, help]);
+
+  const vc = VERDICT_COLOR[trace.verdict];
 
   return (
-    <div className="flex min-h-[calc(100vh-57px)] flex-col gap-3 p-4 xl:h-[calc(100vh-57px)] xl:overflow-hidden">
-      {/* header strip */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => router.push("/")}
-          className="mono rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-ink-300 hover:border-[#37e0d855] hover:text-ink-100"
-        >
-          ← queue
+    <div className="flex min-h-[calc(100vh-56px)] flex-col gap-3 p-4 xl:h-[calc(100vh-56px)] xl:overflow-hidden">
+      {/* header strip — case id + verdict are the primary layer */}
+      <div className="flex items-center gap-4">
+        <button onClick={() => router.push("/")} className={BTN}>
+          ← QUEUE
         </button>
         <div className="flex flex-col">
-          <div className="flex items-center gap-2.5">
-            <span className="mono text-[15px] font-semibold text-ink-100">{trace.case_id}</span>
-            <span className="mono rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-ink-400">
-              {INSTITUTION_LABEL[trace.institution] ?? trace.institution}
+          <div className="flex items-center gap-3">
+            <span className="doto text-[22px] leading-none text-ink-100">{trace.case_id}</span>
+            <span className="mono rounded border border-line bg-obsidian-800 px-1.5 py-0.5 text-[9.5px] tracking-[0.12em] text-ink-400">
+              {(INSTITUTION_LABEL[trace.institution] ?? trace.institution).toUpperCase()}
             </span>
-            <VerdictPill verdict={trace.verdict} />
+            <span
+              className="doto text-[22px] leading-none"
+              style={{ color: vc }}
+            >
+              {trace.verdict}
+            </span>
           </div>
-          <span className="mono mt-0.5 text-[10px] text-ink-600">
+          <span className="mono mt-1.5 text-[10px] tracking-[0.08em] text-ink-500">
             {trace.customer.name} · input {trace.input_hash}
           </span>
         </div>
@@ -86,16 +108,16 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
           <OsintPanel trace={trace} />
           <button
             onClick={() => setRunId((n) => n + 1)}
-            className="mono rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-ink-300 hover:border-[#37e0d855] hover:text-ink-100"
+            className={BTN}
             title="Replay the decision path"
           >
-            ⟳ replay <span className="kbd ml-1">r</span>
+            ⟳ REPLAY <span className="kbd ml-1">r</span>
           </button>
           <div className="flex items-center gap-1">
             <button
               disabled={!prev}
               onClick={() => prev && router.push(`/case/${prev.case_id}`)}
-              className="mono rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-ink-300 hover:border-[#37e0d855] disabled:opacity-30"
+              className={BTN}
               title={prev ? `${prev.case_id} · ${prev.name}` : "first case"}
             >
               ↑ <span className="kbd">k</span>
@@ -103,7 +125,7 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
             <button
               disabled={!next}
               onClick={() => next && router.push(`/case/${next.case_id}`)}
-              className="mono rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-ink-300 hover:border-[#37e0d855] disabled:opacity-30"
+              className={BTN}
               title={next ? `${next.case_id} · ${next.name}` : "last case"}
             >
               ↓ <span className="kbd">j</span>
@@ -115,25 +137,25 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
       {/* main board */}
       <div className="grid flex-1 grid-cols-1 gap-3 xl:min-h-0 xl:grid-cols-[290px_minmax(0,1fr)_360px]">
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
+          transition={{ duration: 0.3 }}
           className="min-h-0 xl:overflow-y-auto"
         >
           <CustomerCard trace={trace} />
         </motion.div>
         <motion.div
-          initial={{ opacity: 0, scale: 0.985 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.45, delay: 0.08 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.4, delay: 0.08 }}
           className="panel relative min-h-[460px] overflow-hidden xl:min-h-0"
         >
-          <FlowGraph trace={trace} onDoc={onDoc} flipped={flipped} />
+          <FlowGraph trace={trace} onDoc={onDoc} flipped={flipped} onList={onList} />
         </motion.div>
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.16 }}
+          transition={{ duration: 0.3, delay: 0.16 }}
           className="panel min-h-[400px] overflow-y-auto p-4 xl:min-h-0"
         >
           <DecisionPath trace={trace} runId={runId} onDoc={onDoc} />
@@ -142,8 +164,14 @@ export default function CaseBoard({ trace, peers }: { trace: Trace; peers: Peer[
 
       <FlipCard trace={trace} flipped={flipped} onToggle={toggleFlip} />
 
-      <EvidenceDrawer institution={trace.institution} docId={doc} onClose={() => setDoc(null)} />
-      <ShortcutHelp open={help} onClose={() => setHelp(false)} page="case" />
+      <EvidenceDrawer
+        institution={trace.institution}
+        docId={doc}
+        txList={txList}
+        onDoc={onDoc}
+        onClose={closeTop}
+      />
+      <ShortcutHelp open={help} onClose={() => setHelp(false)} />
     </div>
   );
 }

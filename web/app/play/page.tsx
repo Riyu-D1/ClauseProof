@@ -78,8 +78,8 @@ function Chips<T extends string>({
             onClick={() => onChange(o.id)}
             className={`min-h-[52px] rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
               active
-                ? "border-accent/60 bg-accent/10 shadow-[0_0_18px_var(--color-accent)]/20"
-                : "border-white/10 bg-white/[0.03]"
+                ? "border-accent/60 bg-accent/10"
+                : "border-line bg-obsidian-850 panel-hover"
             }`}
           >
             <span className={`block text-[13.5px] font-medium ${active ? "text-ink-100" : "text-ink-300"}`}>
@@ -102,7 +102,7 @@ function Toggle({
     <button
       type="button"
       onClick={() => onChange(!on)}
-      className="flex min-h-[48px] w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2 text-left"
+      className="panel-hover flex min-h-[48px] w-full items-center justify-between gap-3 rounded-xl border border-line bg-obsidian-850 px-3.5 py-2 text-left"
     >
       <span>
         <span className="block text-[13px] text-ink-100">{label}</span>
@@ -110,7 +110,7 @@ function Toggle({
       </span>
       <span
         className={`relative h-6 w-11 shrink-0 rounded-full border transition-colors ${
-          on ? "border-accent/60 bg-accent/25" : "border-white/15 bg-white/[0.06]"
+          on ? "border-accent/60 bg-accent/25" : "border-line-2 bg-obsidian-800"
         }`}
       >
         <span
@@ -133,7 +133,7 @@ function Slider({
     <div>
       <div className="mb-1 flex items-baseline justify-between">
         <span className="text-[12px] text-ink-400">{label}</span>
-        <span className="mono text-[15px] font-semibold text-ink-100">{format(value)}</span>
+        <span className="doto text-[15px] text-ink-100">{format(value)}</span>
       </div>
       <input
         type="range"
@@ -223,20 +223,20 @@ export default function PlayPage() {
   if (phase === "result" && result) {
     const c =
       result.verdict === "NO_ALERT"
-        ? "#2bd47d"
+        ? "var(--color-close)"
         : VERDICT_COLOR[result.verdict] ?? "#95a2b6";
     return (
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-[430px] flex-col gap-4 px-4 py-6">
         <div
           className="panel flex flex-col items-center gap-3 p-6 text-center"
-          style={{ borderColor: `${c}55`, boxShadow: `0 0 40px ${c}18` }}
+          style={{ borderColor: `${c}55` }}
         >
           <span className="mono text-[10px] tracking-[0.2em] text-ink-500">
             THE ANALYST HAS DECIDED
           </span>
           <span
-            className="mono text-[26px] font-black tracking-tight"
-            style={{ color: c, textShadow: `0 0 24px ${c}66` }}
+            className="doto text-[30px] leading-none"
+            style={{ color: c }}
           >
             {result.bucket}
           </span>
@@ -248,7 +248,7 @@ export default function PlayPage() {
             <VerdictPill verdict={result.verdict as "CLOSE" | "RFI" | "ESCALATE"} size="lg" />
           )}
           {result.reason_code && (
-            <span className="mono rounded-md border border-white/10 bg-black/30 px-2 py-0.5 text-[10px] text-ink-300">
+            <span className="mono rounded-md border border-line bg-obsidian-800 px-2 py-0.5 text-[10px] text-ink-300">
               {result.reason_code}
             </span>
           )}
@@ -262,7 +262,7 @@ export default function PlayPage() {
             </div>
             <div className="flex flex-col gap-2">
               {result.alerts.map((a) => (
-                <div key={a.rule_id + a.message.slice(0, 12)} className="rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+                <div key={a.rule_id + a.message.slice(0, 12)} className="rounded-lg border border-line bg-obsidian-900 px-3 py-2">
                   <div className="mono text-[10px] font-bold text-accent">{a.rule_id} · {a.rule_name}</div>
                   <div className="mt-0.5 text-[11.5px] leading-snug text-ink-300">{a.message}</div>
                 </div>
@@ -305,7 +305,7 @@ export default function PlayPage() {
 
         <button
           onClick={() => { setPhase("setup"); setResult(null); }}
-          className="min-h-[54px] rounded-2xl border border-accent/50 bg-accent/15 text-[15px] font-bold text-accent"
+          className="min-h-[54px] rounded-xl border border-accent/50 bg-accent/15 text-[15px] font-bold text-accent transition-colors hover:bg-accent/20"
         >
           Try another move
         </button>
@@ -342,7 +342,7 @@ export default function PlayPage() {
                 type="button"
                 onClick={() => setPersona(p)}
                 className={`min-h-[84px] rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                  active ? "border-accent/60 bg-accent/10" : "border-white/10 bg-white/[0.03]"
+                  active ? "border-accent/60 bg-accent/10" : "border-line bg-obsidian-850 panel-hover"
                 }`}
               >
                 <span className={`block text-[13.5px] font-semibold ${active ? "text-ink-100" : "text-ink-300"}`}>
@@ -373,7 +373,7 @@ export default function PlayPage() {
                 format={(v) => `${v}`}
                 label={isCash ? "How many deposits?" : "How many people pay you?"}
               />
-              <div className="mono rounded-lg border border-white/[0.07] bg-black/25 px-3 py-2 text-[11px] text-ink-300">
+              <div className="mono rounded-lg border border-line bg-obsidian-900 px-3 py-2 text-[11px] text-ink-300">
                 {senders === 1 ? "1 payment" : `${senders} payments`} of {gbp(perAmount)} each
                 {isCash && perAmount >= 800 && perAmount < 1000 && persona.institution === "emoney" && (
                   <span className="text-rfi"> — inside the £800–£1,000 watch band</span>
@@ -448,7 +448,7 @@ export default function PlayPage() {
                     className={`min-h-[48px] rounded-xl border px-2 py-2 text-[12px] font-medium ${
                       invoice === o.id
                         ? "border-accent/60 bg-accent/10 text-ink-100"
-                        : "border-white/10 bg-white/[0.03] text-ink-400"
+                        : "border-line bg-obsidian-850 panel-hover text-ink-400"
                     }`}
                   >
                     {o.label}
@@ -465,7 +465,7 @@ export default function PlayPage() {
           value={nickname}
           onChange={(e) => setNickname(e.target.value.slice(0, 18))}
           placeholder="e.g. smooth_operator"
-          className="mono min-h-[52px] w-full rounded-xl border border-white/10 bg-white/[0.03] px-3.5 text-[15px] text-ink-100 placeholder:text-ink-600 focus:border-accent/60 focus:outline-none"
+          className="mono min-h-[52px] w-full rounded-xl border border-line bg-obsidian-850 px-3.5 text-[15px] text-ink-100 placeholder:text-ink-600 focus:border-accent/60 focus:outline-none"
         />
       </Section>
 
@@ -480,12 +480,12 @@ export default function PlayPage() {
         <button
           onClick={submit}
           disabled={phase === "running"}
-          className="min-h-[58px] w-full rounded-2xl border border-accent/60 bg-accent/20 text-[16px] font-black tracking-wide text-accent shadow-[0_0_30px_var(--color-accent)]/25 disabled:opacity-60"
+          className="min-h-[58px] w-full rounded-xl border border-accent/60 bg-accent/20 text-[16px] font-black tracking-wide text-accent transition-colors hover:bg-accent/25 disabled:opacity-60"
         >
           {phase === "running" ? (
             <span className="cp-dots">THE ANALYST IS READING YOUR FILE</span>
           ) : (
-            <>MOVE {gbpShort(GAME_TOTAL_GBP)} →</>
+            <>MOVE <span className="doto text-[17px]">{gbpShort(GAME_TOTAL_GBP)}</span> →</>
           )}
         </button>
         <div className="mono mt-2 text-center text-[9.5px] tracking-[0.18em] text-ink-600">

@@ -16,18 +16,15 @@ interface Feed {
 }
 
 const BUCKET_STYLE: Record<Bucket, { c: string; label: string; sub: string }> = {
-  "CAUGHT": { c: "#ff3b5c", label: "CAUGHT", sub: "escalated to the MLRO" },
-  "QUESTIONED": { c: "#ffb020", label: "QUESTIONED", sub: "RFI — one document away" },
-  "GOT AWAY": { c: "#2bd47d", label: "GOT AWAY", sub: "closed, or never looked at" },
+  "CAUGHT": { c: "#ff5566", label: "CAUGHT", sub: "escalated to the MLRO" },
+  "QUESTIONED": { c: "#ffb224", label: "QUESTIONED", sub: "RFI — one document away" },
+  "GOT AWAY": { c: "#38d07d", label: "GOT AWAY", sub: "closed, or never looked at" },
 };
 
 function NoAlertPill() {
   return (
-    <span
-      className="mono inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold tracking-wide"
-      style={{ color: "#2bd47d", background: "#2bd47d14", border: "1px solid #2bd47d45", boxShadow: "0 0 14px #2bd47d22" }}
-    >
-      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: "#2bd47d", boxShadow: "0 0 8px #2bd47d" }} />
+    <span className="mono inline-flex items-center gap-1.5 rounded border border-close/50 bg-close/10 px-3 py-1.5 text-[13px] font-semibold tracking-wide text-close">
+      <span className="inline-block h-[5px] w-[5px] rounded-full bg-close" />
       NO ALERT
     </span>
   );
@@ -81,13 +78,13 @@ export default function StagePage() {
   return (
     <main className="relative z-10 flex h-screen w-screen flex-col overflow-hidden px-6 py-4">
       {/* header */}
-      <header className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+      <header className="flex items-center justify-between border-b border-line pb-3">
         <div className="flex items-center gap-4">
-          <span className="mono flex h-10 w-10 items-center justify-center rounded-lg border border-accent/40 bg-accent/10 text-lg font-bold text-accent">
+          <span className="doto flex h-10 w-10 items-center justify-center rounded-md border border-line-2 text-lg text-accent">
             CP
           </span>
           <div>
-            <h1 className="text-[22px] font-black tracking-tight text-ink-100">
+            <h1 className="text-[22px] font-bold tracking-tight text-ink-100">
               BEAT THE ANALYST
             </h1>
             <p className="mono text-[10.5px] uppercase tracking-[0.2em] text-ink-500">
@@ -97,7 +94,7 @@ export default function StagePage() {
         </div>
         <div className="flex items-center gap-6">
           <div className="mono text-right text-[11px] text-ink-500">
-            <div>{feed?.total ?? 0} attempts</div>
+            <div><span className="doto text-[15px] text-ink-100">{feed?.total ?? 0}</span> attempts</div>
             <div className="text-ink-600">synthetic · player-made</div>
           </div>
         </div>
@@ -114,7 +111,7 @@ export default function StagePage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={qr} alt={playUrl ?? "play url"} className="h-[190px] w-[190px] rounded-lg" />
             ) : (
-              <div className="flex h-[190px] w-[190px] items-center justify-center rounded-lg border border-white/10 text-[11px] text-ink-500">
+              <div className="flex h-[190px] w-[190px] items-center justify-center rounded-lg border border-line text-[11px] text-ink-500">
                 loading QR…
               </div>
             )}
@@ -141,7 +138,7 @@ export default function StagePage() {
                       {rows.slice(0, 8).map((r, i) => (
                         <div
                           key={`${b}-${i}`}
-                          className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5"
+                          className="rounded-lg border border-line bg-obsidian-900 px-2.5 py-1.5"
                           style={i === 0 ? { borderColor: `${s.c}44` } : undefined}
                         >
                           <div className="flex items-baseline justify-between gap-2">
@@ -154,7 +151,7 @@ export default function StagePage() {
                         </div>
                       ))}
                       {rows.length === 0 && (
-                        <div className="rounded-lg border border-dashed border-white/[0.08] px-2.5 py-2 text-[10.5px] text-ink-600">
+                        <div className="rounded-lg border border-dashed border-line-2 px-2.5 py-2 text-[10.5px] text-ink-600">
                           {s.sub}
                         </div>
                       )}
@@ -203,8 +200,8 @@ export default function StagePage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
                   <span
-                    className="mono text-[20px] font-black tracking-tight"
-                    style={{ color: style.c, textShadow: `0 0 20px ${style.c}55` }}
+                    className="doto text-[24px] leading-none"
+                    style={{ color: style.c }}
                   >
                     {style.label}
                   </span>

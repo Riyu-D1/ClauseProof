@@ -39,9 +39,9 @@ interface Report {
 }
 
 const SIGNAL_COLOR = {
-  clean: "#2bd47d",
-  namesake: "#ffb020",
-  adverse: "#ff3b5c",
+  clean: "#38d07d",
+  namesake: "#ffb224",
+  adverse: "#ff5566",
 } as const;
 
 // own-name / generic bookkeeping labels that aren't real counterparties
@@ -126,11 +126,12 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
     return (
       <button
         key={`${s.kind}:${s.name}`}
+        data-osint-chip
         onClick={() => research(s)}
-        className={`mono rounded-md border px-2 py-1 text-left text-[10.5px] leading-tight transition-colors ${
+        className={`mono rounded border px-2 py-1 text-left text-[10.5px] leading-tight tracking-[0.04em] transition-colors ${
           on
-            ? "border-[#37e0d860] bg-[#37e0d812] text-accent"
-            : "border-white/10 text-ink-300 hover:border-white/25 hover:text-ink-100"
+            ? "border-accent/60 bg-accent/10 text-accent"
+            : "border-line text-ink-300 hover:border-line-2 hover:text-ink-100"
         }`}
       >
         {s.name}
@@ -148,10 +149,10 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="mono rounded-lg border border-white/10 px-2.5 py-1.5 text-[11px] text-ink-300 hover:border-[#37e0d855] hover:text-ink-100"
+        className="mono flex h-8 items-center rounded-md border border-line px-3 text-[10.5px] tracking-[0.1em] text-ink-300 transition-colors hover:border-line-2 hover:text-ink-100"
         title="Research counterparty — live OSINT, context only"
       >
-        ⌕ osint <span className="kbd ml-1">o</span>
+        ⌕ OSINT <span className="kbd ml-1.5">o</span>
       </button>
 
       <AnimatePresence>
@@ -161,40 +162,41 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/50 backdrop-blur-[2px]"
+              className="fixed inset-0 z-40 bg-black/60"
               onClick={() => setOpen(false)}
             />
             <motion.aside
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 34 }}
-              className="fixed bottom-0 right-0 top-0 z-50 flex w-[480px] max-w-[94vw] flex-col border-l border-white/10 bg-obsidian-900"
+              transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+              className="fixed bottom-0 right-0 top-0 z-50 flex w-[500px] max-w-[94vw] flex-col border-l border-line-2 bg-obsidian-900"
             >
-              <div className="flex items-center justify-between border-b border-white/[0.07] px-5 py-3.5">
+              <div className="flex h-14 items-center justify-between border-b border-line px-5">
                 <div className="flex items-center gap-2.5">
-                  <span className="mono text-[10px] tracking-[0.18em] text-ink-500">LIVE OSINT</span>
-                  <span className="mono rounded-md border border-[#ffb02040] bg-[#ffb02010] px-2 py-0.5 text-[10px] text-[#ffb020]">
-                    context only · not used in the verdict
+                  <span className="label">Live OSINT</span>
+                  <span className="mono rounded border border-[#ffb22444] px-2 py-0.5 text-[9.5px] tracking-[0.1em] text-rfi">
+                    CONTEXT ONLY · NOT USED IN THE VERDICT
                   </span>
                 </div>
                 <button
+                  autoFocus
                   onClick={() => setOpen(false)}
-                  className="mono rounded-md border border-white/10 px-2 py-1 text-[11px] text-ink-300 hover:border-white/30"
+                  className="mono rounded border border-line px-2 py-1 text-[10px] tracking-[0.1em] text-ink-300 transition-colors hover:border-line-2 hover:text-ink-100"
                 >
-                  esc ✕
+                  ESC ✕
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="flex-1 overflow-y-auto px-6 py-5">
                 {/* subject picker */}
-                <p className="mono text-[10px] tracking-[0.16em] text-ink-500">RESEARCH SUBJECT</p>
-                <div className="mt-2 flex flex-col gap-2.5">
+                <p className="label">Research subject</p>
+                <div className="mt-2.5 flex flex-col gap-3">
                   <div className="flex flex-wrap gap-1.5">{groups.customer.map(chip)}</div>
                   {groups.counterparties.length > 0 && (
                     <div>
-                      <p className="mono mb-1 text-[9.5px] tracking-[0.14em] text-ink-600">
-                        COUNTERPARTIES
+                      <p className="label mb-1.5" style={{ fontSize: "9.5px" }}>
+                        Counterparties
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {groups.counterparties.map(chip)}
@@ -203,8 +205,8 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                   )}
                   {groups.countries.length > 0 && (
                     <div>
-                      <p className="mono mb-1 text-[9.5px] tracking-[0.14em] text-ink-600">
-                        COUNTRIES · FATF / UK high-risk status
+                      <p className="label mb-1.5" style={{ fontSize: "9.5px" }}>
+                        Countries · FATF / UK high-risk status
                       </p>
                       <div className="flex flex-wrap gap-1.5">
                         {groups.countries.map(chip)}
@@ -221,11 +223,11 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                         }
                       }}
                       placeholder="custom subject…"
-                      className="mono min-w-0 flex-1 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1 text-[10.5px] text-ink-100 placeholder:text-ink-600 focus:border-[#37e0d860] focus:outline-none"
+                      className="mono min-w-0 flex-1 rounded-md border border-line bg-obsidian-850 px-2.5 py-1.5 text-[10.5px] text-ink-100 placeholder:text-ink-600 focus:border-accent focus:outline-none"
                     />
                     <button
                       onClick={() => setCustomKind(customKind === "entity" ? "country" : "entity")}
-                      className="mono rounded-md border border-white/10 px-2 py-1 text-[10px] text-ink-400 hover:border-white/25"
+                      className="mono rounded border border-line px-2 py-1.5 text-[10px] uppercase text-ink-400 transition-colors hover:border-line-2"
                       title="toggle subject type"
                     >
                       {customKind}
@@ -235,38 +237,35 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                       onClick={() =>
                         research({ kind: customKind, name: custom.trim(), tag: "custom" })
                       }
-                      className="mono rounded-md border border-[#37e0d840] bg-[#37e0d810] px-2 py-1 text-[10px] text-accent hover:bg-[#37e0d820] disabled:opacity-30"
+                      className="mono rounded border border-accent/50 bg-accent/10 px-2.5 py-1.5 text-[10px] font-bold tracking-[0.08em] text-accent transition-colors hover:bg-accent/20 disabled:opacity-30"
                     >
-                      run
+                      RUN
                     </button>
                   </div>
                 </div>
 
                 {/* results */}
-                <div className="mt-5">
+                <div className="mt-6">
                   {loading && (
-                    <div className="flex flex-col gap-3 pt-2">
-                      {[64, 40, 88, 72, 52].map((w, i) => (
-                        <div
-                          key={i}
-                          className="h-3 animate-pulse rounded bg-white/[0.06]"
-                          style={{ width: `${w}%` }}
-                        />
-                      ))}
-                      <p className="mono mt-1 text-[10px] text-ink-600">
-                        querying tavily · {active?.name}
+                    <div className="pt-2">
+                      <p className="mono text-[11px] tracking-[0.18em] text-ink-500">
+                        <span className="cp-dots">[ QUERYING TAVILY</span>
+                        <span> ]</span>
+                      </p>
+                      <p className="mono mt-2 text-[10px] text-ink-500">
+                        {active?.tag} · {active?.name}
                       </p>
                     </div>
                   )}
 
                   {!loading && report?.offline && (
-                    <div className="panel border-[#ffb02030] p-4">
+                    <div className="panel p-4" style={{ borderColor: "#ffb22440" }}>
                       <div className="flex items-center gap-2">
                         <span
-                          className="inline-block h-1.5 w-1.5 rounded-full"
-                          style={{ background: "#ffb020", boxShadow: "0 0 8px #ffb020" }}
+                          className="inline-block h-[5px] w-[5px] rounded-full"
+                          style={{ background: "#ffb224" }}
                         />
-                        <span className="mono text-[11px] font-semibold tracking-wide text-[#ffb020]">
+                        <span className="mono text-[11px] font-bold tracking-[0.14em] text-rfi">
                           OSINT OFFLINE
                         </span>
                       </div>
@@ -274,7 +273,7 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                         {offlineText[report.offline_reason ?? ""] ??
                           "Live OSINT is unavailable right now."}
                       </p>
-                      <p className="mt-2 text-[11.5px] text-ink-500">
+                      <p className="mt-2 text-[11.5px] text-ink-400">
                         The verdict, reason code and evidence on this case are unchanged — they were
                         produced offline by the scored engine.
                       </p>
@@ -286,23 +285,20 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                       {/* signal banner */}
                       <div
                         className="panel p-4"
-                        style={{ borderColor: `${SIGNAL_COLOR[report.signal ?? "clean"]}35` }}
+                        style={{ borderColor: `${SIGNAL_COLOR[report.signal ?? "clean"]}40` }}
                       >
                         <div className="flex items-center gap-2">
                           <span
-                            className="inline-block h-1.5 w-1.5 rounded-full"
-                            style={{
-                              background: SIGNAL_COLOR[report.signal ?? "clean"],
-                              boxShadow: `0 0 8px ${SIGNAL_COLOR[report.signal ?? "clean"]}`,
-                            }}
+                            className="inline-block h-[5px] w-[5px] rounded-full"
+                            style={{ background: SIGNAL_COLOR[report.signal ?? "clean"] }}
                           />
                           <span
-                            className="mono text-[11px] font-semibold tracking-wide"
+                            className="mono text-[11px] font-bold tracking-[0.14em]"
                             style={{ color: SIGNAL_COLOR[report.signal ?? "clean"] }}
                           >
                             {report.signal_label}
                           </span>
-                          <span className="mono ml-auto text-[9.5px] text-ink-600">
+                          <span className="mono ml-auto text-[9.5px] text-ink-500">
                             {report.took_ms}ms
                           </span>
                         </div>
@@ -314,48 +310,48 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                       {/* per-query findings */}
                       <div className="mt-3 flex flex-col gap-3">
                         {(report.queries ?? []).map((q, i) => (
-                          <div key={i} className="panel p-3.5">
+                          <div key={i} className="panel p-4">
                             <div className="flex items-center gap-2">
-                              <span className="mono text-[10px] font-semibold tracking-[0.12em] text-ink-300">
+                              <span className="mono text-[10px] font-bold tracking-[0.14em] text-ink-300">
                                 {q.label.toUpperCase()}
                               </span>
                               <span
-                                className={`mono ml-auto rounded border px-1.5 py-0.5 text-[9px] ${
+                                className={`mono ml-auto rounded border px-1.5 py-0.5 text-[9px] font-bold tracking-[0.1em] ${
                                   q.error
-                                    ? "border-[#ff3b5c40] bg-[#ff3b5c10] text-[#ff3b5c]"
+                                    ? "border-[#ff556640] bg-[#ff556610] text-[#ff5566]"
                                     : q.cached
-                                      ? "border-white/10 bg-white/[0.04] text-ink-400"
-                                      : "border-[#37e0d840] bg-[#37e0d810] text-accent"
+                                      ? "border-line bg-obsidian-800 text-ink-400"
+                                      : "border-accent/40 bg-accent/10 text-accent"
                                 }`}
                               >
                                 {q.error ? "ERROR" : q.cached ? "CACHED" : "LIVE"}
                               </span>
                             </div>
-                            <p className="mono mt-1 break-all text-[9.5px] leading-relaxed text-ink-600">
+                            <p className="mono mt-1.5 break-all text-[9.5px] leading-relaxed text-ink-500">
                               {q.query}
                             </p>
                             {q.error && (
-                              <p className="mt-2 text-[11.5px] text-[#ff3b5c]">
+                              <p className="mt-2 text-[11.5px] text-[#ff5566]">
                                 call failed ({q.error}) — {q.cached ? "serving cache" : "no data"}
                               </p>
                             )}
                             {q.answer && (
-                              <p className="mt-2 border-l-2 border-[#37e0d840] pl-2.5 text-[12px] leading-relaxed text-ink-300">
+                              <p className="mt-2 border-l-2 border-accent/40 pl-3 text-[12px] leading-relaxed text-ink-300">
                                 {q.answer}
                               </p>
                             )}
                             <div className="mt-2 flex flex-col gap-2.5">
                               {q.findings.map((f, j) => (
-                                <div key={j} className="border-t border-white/[0.05] pt-2">
+                                <div key={j} className="border-t border-line pt-2.5">
                                   <a
                                     href={f.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-[12px] font-medium leading-snug text-ink-100 hover:text-accent"
+                                    className="text-[12px] font-medium leading-snug text-ink-100 transition-colors hover:text-accent"
                                   >
                                     {f.title} <span className="text-ink-500">↗</span>
                                   </a>
-                                  <div className="mono mt-0.5 text-[9.5px] text-ink-600">
+                                  <div className="mono mt-0.5 text-[9.5px] text-ink-500">
                                     {f.domain}
                                   </div>
                                   <p className="mt-1 text-[11.5px] leading-relaxed text-ink-400">
@@ -365,7 +361,7 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                                 </div>
                               ))}
                               {!q.error && q.findings.length === 0 && (
-                                <p className="border-t border-white/[0.05] pt-2 text-[11.5px] text-ink-500">
+                                <p className="border-t border-line pt-2.5 text-[11.5px] text-ink-500">
                                   no results returned
                                 </p>
                               )}
@@ -374,8 +370,8 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                         ))}
                       </div>
 
-                      <div className="mt-4 rounded-lg border border-[#ffb02025] bg-[#ffb02008] p-3.5">
-                        <p className="mono text-[9.5px] tracking-[0.14em] text-[#ffb020]">
+                      <div className="mt-4 rounded-lg border border-[#ffb22433] p-4">
+                        <p className="mono text-[9.5px] font-bold tracking-[0.16em] text-rfi">
                           READ WITH CARE
                         </p>
                         <p className="mt-1.5 text-[11.5px] leading-relaxed text-ink-300">
@@ -390,15 +386,15 @@ export default function OsintPanel({ trace }: { trace: Trace }) {
                   )}
 
                   {!loading && !report && (
-                    <p className="pt-2 text-[12px] text-ink-500">
+                    <p className="pt-2 text-[12px] leading-relaxed text-ink-400">
                       Pick a subject above — or type a custom name — to run a live check against the
                       public web via Tavily. Results are cached on disk so repeat clicks are free.
                     </p>
                   )}
                 </div>
 
-                <div className="mt-5 border-t border-white/[0.06] pb-3 pt-3">
-                  <p className="mono text-[9px] leading-relaxed tracking-[0.1em] text-ink-600">
+                <div className="mt-6 border-t border-line pb-3 pt-3">
+                  <p className="mono text-[9px] leading-relaxed tracking-[0.12em] text-ink-500">
                     LIVE OSINT · CONTEXT ONLY · NOT USED IN THE VERDICT · MAX 3 QUERIES PER RUN ·
                     CACHED IN web/.cache/osint/
                   </p>
